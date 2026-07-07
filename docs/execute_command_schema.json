@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "execute_command",
-  "description": "Execute a command on the Flipper Zero device. All file operations, device queries, hardware control, and artifact pushes go through this interface.",
+  "description": "Execute a command on the Flipper Zero device. All file operations, device queries, hardware control, and artifact pushes go through this interface. Mirrors com.vesper.flipper.domain.model.ExecuteCommand.",
   "type": "object",
   "properties": {
     "action": {
@@ -17,20 +17,24 @@
         "copy",
         "get_device_info",
         "get_storage_info",
-        "execute_cli",
+        "search_faphub",
+        "install_faphub_app",
         "push_artifact",
+        "execute_cli",
         "forge_payload",
+        "search_resources",
+        "list_vault",
+        "run_runbook",
+        "launch_app",
         "subghz_transmit",
         "ir_transmit",
         "nfc_emulate",
         "rfid_emulate",
         "ibutton_emulate",
         "badusb_execute",
-        "launch_app",
+        "ble_spam",
         "led_control",
         "vibro_control",
-        "search_faphub",
-        "install_faphub_app",
         "browse_repo",
         "download_resource",
         "github_search",
@@ -40,11 +44,15 @@
     },
     "args": {
       "type": "object",
-      "description": "Arguments for the action (varies by action type)",
+      "description": "Arguments for the action (varies by action type). Unused fields may be omitted.",
       "properties": {
+        "command": {
+          "type": "string",
+          "description": "Free-form command string. For execute_cli: the CLI command. For search_faphub/github_search/search_resources: the query. For install_faphub_app: the app id or name. For forge_payload: fallback natural-language prompt. For launch_app: fallback app name. For run_runbook: fallback runbook id. For browse_repo: fallback repo id."
+        },
         "path": {
           "type": "string",
-          "description": "File or directory path on Flipper (e.g., /ext/subghz/garage.sub)"
+          "description": "File or directory path on Flipper (e.g., /ext/subghz/garage.sub). Also the source path for move/copy/rename, target path for push_artifact/download_resource, and signal file for subghz_transmit/ir_transmit/nfc_emulate/rfid_emulate/ibutton_emulate/badusb_execute."
         },
         "destination_path": {
           "type": "string",
@@ -52,7 +60,7 @@
         },
         "content": {
           "type": "string",
-          "description": "Content to write to file (for write_file action)"
+          "description": "Content to write to file (for write_file action). Also used as a fallback for execute_cli commands and install_faphub_app direct download URL."
         },
         "new_name": {
           "type": "string",
@@ -65,70 +73,92 @@
         },
         "artifact_type": {
           "type": "string",
-          "enum": ["fap", "config", "data", "executable"],
-          "description": "Type of artifact being pushed"
+          "description": "Type of artifact being pushed (for push_artifact action)"
         },
         "artifact_data": {
           "type": "string",
           "description": "Base64-encoded artifact data (for push_artifact action)"
         },
-        "command": {
+        "prompt": {
           "type": "string",
-          "description": "CLI command to execute on the Flipper (for execute_cli action)"
+          "description": "Natural-language specification for forge_payload"
+        },
+        "resource_type": {
+          "type": "string",
+          "description": "Resource type filter for search_resources"
+        },
+        "runbook_id": {
+          "type": "string",
+          "description": "Runbook identifier (for run_runbook action)"
         },
         "payload_type": {
           "type": "string",
           "enum": ["subghz", "ir", "badusb", "nfc"],
           "description": "Type of payload to generate (for forge_payload action)"
         },
-        "payload_spec": {
+        "filter": {
           "type": "string",
-          "description": "Natural language or structured specification for payload generation"
+          "description": "Filter string for list_vault"
+        },
+        "app_name": {
+          "type": "string",
+          "description": "Application name (for launch_app action)"
+        },
+        "app_args": {
+          "type": "string",
+          "description": "Arguments passed to the launched app; also used as the ble_spam mode string"
         },
         "frequency": {
-          "type": "number",
+          "type": "integer",
           "description": "Frequency in Hz for SubGHz operations"
         },
         "protocol": {
           "type": "string",
           "description": "Protocol name for SubGHz/IR/NFC operations"
         },
-        "signal_file": {
+        "address": {
           "type": "string",
-          "description": "Path to signal file on Flipper for transmit/emulate actions"
+          "description": "Address/identifier for hardware transmit operations"
         },
-        "script": {
+        "signal_name": {
           "type": "string",
-          "description": "BadUSB script content (for badusb_execute action)"
+          "description": "Named signal for IR transmit operations"
         },
-        "app_name": {
-          "type": "string",
-          "description": "Application name (for launch_app action)"
-        },
-        "color": {
-          "type": "string",
-          "enum": ["red", "green", "blue", "backlight"],
-          "description": "LED color (for led_control action)"
-        },
-        "state": {
+        "enabled": {
           "type": "boolean",
-          "description": "On/off state for LED or vibro control"
+          "description": "On/off state (for vibro_control action; defaults to true)"
         },
-        "query": {
-          "type": "string",
-          "description": "Search query for FapHub, GitHub, or resource browsing"
+        "red": {
+          "type": "integer",
+          "description": "Red LED intensity 0-255 (for led_control action)"
         },
-        "app_id": {
-          "type": "string",
-          "description": "FapHub application ID (for install_faphub_app action)"
+        "green": {
+          "type": "integer",
+          "description": "Green LED intensity 0-255 (for led_control action)"
         },
-        "repo_url": {
-          "type": "string",
-          "description": "GitHub repository URL (for browse_repo action)"
+        "blue": {
+          "type": "integer",
+          "description": "Blue LED intensity 0-255 (for led_control action)"
         },
-        "resource_url": {
+        "repo_id": {
           "type": "string",
-          "description": "URL of resource to download (for download_resource action)"
+          "description": "Resource repository identifier (for browse_repo action)"
+        },
+        "sub_path": {
+          "type": "string",
+          "description": "Sub-path within a browsed repo (for browse_repo action)"
+        },
+        "download_url": {
+          "type": "string",
+          "description": "Direct URL of resource to download (for download_resource, or direct .fap URL for install_faphub_app)"
+        },
+        "search_scope": {
+          "type": "string",
+          "description": "GitHub search scope, e.g. \"code\" or \"repositories\" (for github_search action; defaults to \"code\")"
+        },
+        "photo_prompt": {
+          "type": "string",
+          "description": "Prompt describing what to capture (for request_photo action)"
         }
       }
     },
@@ -171,7 +201,7 @@
     {
       "action": "subghz_transmit",
       "args": {
-        "signal_file": "/ext/subghz/garage.sub"
+        "path": "/ext/subghz/garage.sub"
       },
       "justification": "User wants to transmit the garage signal",
       "expected_effect": "Transmit the SubGHz signal stored in garage.sub"
@@ -187,7 +217,8 @@
     {
       "action": "launch_app",
       "args": {
-        "app_name": "Sub-GHz"
+        "app_name": "Sub-GHz",
+        "app_args": ""
       },
       "justification": "User wants to open the SubGHz app on the Flipper",
       "expected_effect": "Launch the Sub-GHz application on the Flipper Zero"
@@ -195,19 +226,115 @@
     {
       "action": "led_control",
       "args": {
-        "color": "green",
-        "state": true
+        "red": 0,
+        "green": 255,
+        "blue": 0
       },
       "justification": "User wants visual feedback from the Flipper",
       "expected_effect": "Turn on the green LED on the Flipper Zero"
     },
     {
+      "action": "vibro_control",
+      "args": {
+        "enabled": true
+      },
+      "justification": "User wants haptic feedback",
+      "expected_effect": "Turn on the vibration motor"
+    },
+    {
       "action": "search_faphub",
       "args": {
-        "query": "wifi scanner"
+        "command": "wifi scanner"
       },
       "justification": "User is looking for a WiFi scanning app",
       "expected_effect": "Return matching applications from the FapHub catalog"
+    },
+    {
+      "action": "install_faphub_app",
+      "args": {
+        "command": "wifi_marauder",
+        "download_url": "https://example.com/wifi_marauder.fap"
+      },
+      "justification": "User wants to install the selected FapHub app",
+      "expected_effect": "Install the WiFi Marauder .fap onto the Flipper"
+    },
+    {
+      "action": "forge_payload",
+      "args": {
+        "payload_type": "badusb",
+        "prompt": "Open a browser to example.com"
+      },
+      "justification": "User wants a generated BadUSB payload",
+      "expected_effect": "Return a forged BadUSB script matching the spec"
+    },
+    {
+      "action": "search_resources",
+      "args": {
+        "command": "garage",
+        "resource_type": "subghz"
+      },
+      "justification": "User is browsing community SubGHz resources",
+      "expected_effect": "Return matching resource repositories"
+    },
+    {
+      "action": "browse_repo",
+      "args": {
+        "repo_id": "unleashed-firmware",
+        "sub_path": "subghz"
+      },
+      "justification": "User wants to inspect a specific resource repo",
+      "expected_effect": "List contents at the given sub-path within the repo"
+    },
+    {
+      "action": "download_resource",
+      "args": {
+        "download_url": "https://example.com/garage.sub",
+        "path": "/ext/subghz/garage.sub"
+      },
+      "justification": "User wants to download a signal file",
+      "expected_effect": "Download the resource to the given Flipper path"
+    },
+    {
+      "action": "github_search",
+      "args": {
+        "command": "flipper subghz replay",
+        "search_scope": "code"
+      },
+      "justification": "User wants GitHub code search results",
+      "expected_effect": "Return matching GitHub code results"
+    },
+    {
+      "action": "list_vault",
+      "args": {
+        "path": "/ext",
+        "filter": "*.sub"
+      },
+      "justification": "User wants to browse vault contents",
+      "expected_effect": "Return filtered vault entries"
+    },
+    {
+      "action": "run_runbook",
+      "args": {
+        "runbook_id": "recon_basic"
+      },
+      "justification": "User wants to run a pre-defined recon routine",
+      "expected_effect": "Execute the referenced runbook"
+    },
+    {
+      "action": "ble_spam",
+      "args": {
+        "app_args": "apple"
+      },
+      "justification": "User wants to run a BLE spam mode",
+      "expected_effect": "Launch BLE spam with the given mode"
+    },
+    {
+      "action": "request_photo",
+      "args": {
+        "photo_prompt": "capture the target device screen"
+      },
+      "justification": "User wants a picture taken via smartglasses",
+      "expected_effect": "Trigger a photo capture at the agent layer"
     },
     {
       "action": "get_device_info",
