@@ -172,15 +172,17 @@ fun VesperApp() {
                             ),
                             onClick = {
                                 val activeRoute = navController.currentBackStackEntry?.destination?.route
-                                // If already on this tab, do nothing
                                 if (activeRoute == screen.route) return@NavigationBarItem
+                                val activeEffective = subScreenParents[activeRoute] ?: activeRoute
+                                if (activeEffective == screen.route) {
+                                    navController.popBackStack(screen.route, inclusive = false)
+                                    return@NavigationBarItem
+                                }
                                 navController.navigate(screen.route) {
                                     popUpTo(navController.graph.findStartDestination().id) {
                                         saveState = true
                                     }
                                     launchSingleTop = true
-                                    // Only restore state when switching between bottom-nav tabs,
-                                    // not when returning from sub-screens (Files, Audit)
                                     restoreState = activeRoute in screens.map { it.route }
                                 }
                             }
