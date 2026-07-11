@@ -38,8 +38,7 @@ import com.vesper.flipper.ui.viewmodel.PayloadLabViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PayloadLabScreen(
-    viewModel: PayloadLabViewModel = hiltViewModel(),
-    onNavigateBack: () -> Unit
+    viewModel: PayloadLabViewModel = hiltViewModel()
 ) {
     var selectedTab by remember { mutableStateOf(0) }
     val tabs = listOf("BadUSB", "Evil Portal")
@@ -75,11 +74,6 @@ fun PayloadLabScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

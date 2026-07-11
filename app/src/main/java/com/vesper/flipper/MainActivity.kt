@@ -115,7 +115,7 @@ sealed class Screen(
 val screens = listOf(
     Screen.Chat,
     Screen.Alchemy,
-    Screen.FapHub,
+    Screen.PayloadLab,
     Screen.Device,
     Screen.Settings
 )
@@ -211,6 +211,9 @@ fun VesperApp() {
                 }
                 composable(Screen.FapHub.route) {
                     FapHubScreen()
+                }
+                composable(Screen.PayloadLab.route) {
+                    PayloadLabScreen()
                 }
                 composable(Screen.Files.route) {
                     FileBrowserScreen()
