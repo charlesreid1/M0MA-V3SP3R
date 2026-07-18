@@ -1191,6 +1191,21 @@ class OpenRouterClient @Inject constructor(
             CommandAction.MUSIC_PLAY -> listOfNotNull(if (args.content.isNullOrBlank()) "content" else null)
             CommandAction.MUSIC_GET_FORMAT -> emptyList()
             CommandAction.GET_SYSTEM_INFO -> emptyList()
+            CommandAction.BLE_SCAN_TARGETS -> emptyList()
+            CommandAction.BLE_ENUMERATE -> listOfNotNull(if (args.address.isNullOrBlank()) "address" else null)
+            CommandAction.BLE_READ_CHAR -> listOfNotNull(
+                if (args.address.isNullOrBlank()) "address" else null,
+                if (args.uuid.isNullOrBlank()) "uuid" else null
+            )
+            CommandAction.BLE_WRITE_CHAR -> listOfNotNull(
+                if (args.address.isNullOrBlank()) "address" else null,
+                if (args.uuid.isNullOrBlank()) "uuid" else null,
+                if (args.content.isNullOrBlank()) "content" else null
+            )
+            CommandAction.BLE_SUBSCRIBE -> listOfNotNull(
+                if (args.address.isNullOrBlank()) "address" else null,
+                if (args.uuid.isNullOrBlank()) "uuid" else null
+            )
         }
     }
 
@@ -1286,6 +1301,16 @@ class OpenRouterClient @Inject constructor(
                 """{"action":"music_get_format","args":{}}"""
             CommandAction.GET_SYSTEM_INFO ->
                 """{"action":"get_system_info","args":{}}"""
+            CommandAction.BLE_SCAN_TARGETS ->
+                """{"action":"ble_scan_targets","args":{"duration":5,"command":"lock"}}"""
+            CommandAction.BLE_ENUMERATE ->
+                """{"action":"ble_enumerate","args":{"address":"AA:BB:CC:DD:EE:FF"}}"""
+            CommandAction.BLE_READ_CHAR ->
+                """{"action":"ble_read_char","args":{"address":"AA:BB:CC:DD:EE:FF","uuid":"00002a00-0000-1000-8000-00805f9b34fb"}}"""
+            CommandAction.BLE_WRITE_CHAR ->
+                """{"action":"ble_write_char","args":{"address":"AA:BB:CC:DD:EE:FF","uuid":"...","content":"01FF00","hex":true,"with_response":true}}"""
+            CommandAction.BLE_SUBSCRIBE ->
+                """{"action":"ble_subscribe","args":{"address":"AA:BB:CC:DD:EE:FF","uuid":"...","duration":5}}"""
         }
     }
 

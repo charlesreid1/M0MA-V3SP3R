@@ -57,7 +57,8 @@ class RiskAssessor @Inject constructor(
             CommandAction.NFC_FIELD,
             CommandAction.RFID_READ,
             CommandAction.GPIO_READ,
-            CommandAction.MUSIC_GET_FORMAT -> {
+            CommandAction.MUSIC_GET_FORMAT,
+            CommandAction.BLE_SCAN_TARGETS -> {
                 RiskAssessment(
                     level = RiskLevel.LOW,
                     reason = "Read-only operation",
@@ -338,6 +339,30 @@ class RiskAssessor @Inject constructor(
                 RiskAssessment(
                     level = RiskLevel.HIGH,
                     reason = "RFID tag write",
+                    affectedPaths = paths,
+                    requiresDiff = false,
+                    requiresConfirmation = true
+                )
+            }
+
+            // MEDIUM risk: BLE recon that connects to a target device
+            CommandAction.BLE_ENUMERATE,
+            CommandAction.BLE_READ_CHAR,
+            CommandAction.BLE_SUBSCRIBE -> {
+                RiskAssessment(
+                    level = RiskLevel.MEDIUM,
+                    reason = "BLE recon against target device",
+                    affectedPaths = paths,
+                    requiresDiff = false,
+                    requiresConfirmation = true
+                )
+            }
+
+            // HIGH risk: BLE write can trigger actions on the target device
+            CommandAction.BLE_WRITE_CHAR -> {
+                RiskAssessment(
+                    level = RiskLevel.HIGH,
+                    reason = "BLE characteristic write to target device",
                     affectedPaths = paths,
                     requiresDiff = false,
                     requiresConfirmation = true
