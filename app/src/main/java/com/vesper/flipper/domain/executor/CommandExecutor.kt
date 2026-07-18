@@ -651,6 +651,96 @@ class CommandExecutor @Inject constructor(
                 )
             }
 
+            CommandAction.SUBGHZ_RECEIVE -> {
+                val freq = command.args.frequency ?: 433_920_000L
+                runCliAction("subghz rx $freq", "Sub-GHz RX capture at ${freq}Hz")
+            }
+
+            CommandAction.SUBGHZ_DECODE_RAW -> {
+                val path = command.args.path
+                    ?: throw IllegalArgumentException("Sub-GHz .sub file path required (e.g. /ext/subghz/capture.sub)")
+                runCliAction("subghz decode_raw $path", "Decoded Sub-GHz capture: $path")
+            }
+
+            CommandAction.IR_RECEIVE -> runCliAction("ir rx", "IR RX capture")
+
+            CommandAction.IR_TRANSMIT_RAW -> {
+                val samples = command.args.content
+                    ?: throw IllegalArgumentException("Raw IR samples required in content")
+                val freq = command.args.frequency ?: 38000L
+                val dc = command.args.dutyCycle ?: 0.33
+                val dcPct = (dc * 100).toInt()
+                runCliAction(
+                    "ir tx RAW F:$freq DC:$dcPct $samples",
+                    "Transmitted raw IR (F=${freq}Hz, DC=${dcPct}%)"
+                )
+            }
+
+            CommandAction.NFC_DETECT -> runCliAction("nfc detect", "NFC detect")
+
+            CommandAction.NFC_FIELD -> runCliAction("nfc field", "NFC field (reader detection)")
+
+            CommandAction.RFID_READ -> runCliAction("rfid read", "RFID read")
+
+            CommandAction.RFID_WRITE -> {
+                val keyType = command.args.keyType
+                    ?: throw IllegalArgumentException("RFID key_type required (e.g. EM4100, HIDProx)")
+                val keyData = command.args.keyData
+                    ?: throw IllegalArgumentException("RFID key_data required")
+                runCliAction(
+                    "rfid write $keyType $keyData",
+                    "RFID write: type=$keyType"
+                )
+            }
+
+            CommandAction.GPIO_READ -> {
+                val pin = command.args.pin
+                    ?: throw IllegalArgumentException("GPIO pin required (e.g. PA7, PC3)")
+                runCliAction("gpio read $pin", "GPIO read: $pin")
+            }
+
+            CommandAction.GPIO_SET -> {
+                val pin = command.args.pin
+                    ?: throw IllegalArgumentException("GPIO pin required")
+                val value = command.args.value
+                    ?: throw IllegalArgumentException("GPIO value required (0 or 1)")
+                runCliAction("gpio set $pin $value", "GPIO $pin ← $value")
+            }
+
+            CommandAction.GPIO_MODE -> {
+                val pin = command.args.pin
+                    ?: throw IllegalArgumentException("GPIO pin required")
+                val mode = command.args.mode
+                    ?: throw IllegalArgumentException("GPIO mode required (0=input, 1=output)")
+                val modeName = if (mode == 1) "output" else "input"
+                runCliAction("gpio mode $pin $mode", "GPIO $pin mode ← $modeName")
+            }
+
+            CommandAction.APPS_LIST -> runCliAction("loader list", "Listed Flipper apps")
+
+            CommandAction.MUSIC_PLAY -> {
+                val song = command.args.content
+                    ?: throw IllegalArgumentException("Song data (FMF format) required in content")
+                val destPath = (command.args.path ?: "/ext/music_player/vesper.fmf").trim()
+                fileSystem.writeFile(destPath, song).getOrThrow()
+                val output = fileSystem.executeCli("loader open \"Music Player\" $destPath")
+                    .getOrThrow()
+                CommandResultData(
+                    content = output,
+                    message = "Wrote $destPath and launched Music Player"
+                )
+            }
+
+            CommandAction.MUSIC_GET_FORMAT -> CommandResultData(
+                content = FLIPPER_MUSIC_FORMAT_SPEC,
+                message = "Flipper Music Format (FMF) specification"
+            )
+
+            CommandAction.GET_SYSTEM_INFO -> runCliAction(
+                "device_info",
+                "System info from Flipper"
+            )
+
             // REQUEST_PHOTO is intercepted by VesperAgent before reaching here.
             // This stub exists only so the exhaustive when compiles.
             CommandAction.REQUEST_PHOTO -> {
@@ -660,6 +750,16 @@ class CommandExecutor @Inject constructor(
                 )
             }
         }
+    }
+
+    /**
+     * Shim for actions that are a single CLI invocation with no post-processing.
+     * Use only after the `when` above proves the action is exhaustively handled — never
+     * inside `else`, since we rely on the compiler to catch missing actions.
+     */
+    private suspend fun runCliAction(cli: String, message: String): CommandResultData {
+        val output = fileSystem.executeCli(cli).getOrThrow()
+        return CommandResultData(content = output, message = message)
     }
 
     private fun executeFapHubSearch(query: String): CommandResultData {

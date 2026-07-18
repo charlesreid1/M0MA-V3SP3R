@@ -80,20 +80,65 @@ enum class CommandAction {
     @SerialName("subghz_transmit")
     SUBGHZ_TRANSMIT,
 
+    @SerialName("subghz_receive")
+    SUBGHZ_RECEIVE,
+
+    @SerialName("subghz_decode_raw")
+    SUBGHZ_DECODE_RAW,
+
     @SerialName("ir_transmit")
     IR_TRANSMIT,
+
+    @SerialName("ir_transmit_raw")
+    IR_TRANSMIT_RAW,
+
+    @SerialName("ir_receive")
+    IR_RECEIVE,
 
     @SerialName("nfc_emulate")
     NFC_EMULATE,
 
+    @SerialName("nfc_detect")
+    NFC_DETECT,
+
+    @SerialName("nfc_field")
+    NFC_FIELD,
+
     @SerialName("rfid_emulate")
     RFID_EMULATE,
+
+    @SerialName("rfid_read")
+    RFID_READ,
+
+    @SerialName("rfid_write")
+    RFID_WRITE,
 
     @SerialName("ibutton_emulate")
     IBUTTON_EMULATE,
 
     @SerialName("badusb_execute")
     BADUSB_EXECUTE,
+
+    @SerialName("gpio_read")
+    GPIO_READ,
+
+    @SerialName("gpio_set")
+    GPIO_SET,
+
+    @SerialName("gpio_mode")
+    GPIO_MODE,
+
+    @SerialName("apps_list")
+    APPS_LIST,
+
+    @SerialName("music_play")
+    MUSIC_PLAY,
+
+    @SerialName("music_get_format")
+    MUSIC_GET_FORMAT,
+
+    @SerialName("get_system_info")
+    GET_SYSTEM_INFO,
 
     @SerialName("ble_spam")
     BLE_SPAM,
@@ -165,7 +210,19 @@ data class CommandArgs(
     @SerialName("search_scope")
     val searchScope: String? = null,
     @SerialName("photo_prompt")
-    val photoPrompt: String? = null
+    val photoPrompt: String? = null,
+
+    // Hardware CLI-wrapper args (GPIO, RFID, NFC/IR/SubGHz timing, IR raw)
+    val pin: String? = null,
+    val value: Int? = null,
+    val mode: Int? = null,
+    @SerialName("duty_cycle")
+    val dutyCycle: Double? = null,
+    @SerialName("key_type")
+    val keyType: String? = null,
+    @SerialName("key_data")
+    val keyData: String? = null,
+    val duration: Double? = null
 )
 
 /**
