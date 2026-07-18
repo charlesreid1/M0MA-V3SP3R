@@ -113,6 +113,35 @@ class AuditService @Inject constructor(
     }
 
     /**
+     * One-shot audit query used by the AUDIT_QUERY command action. Pulls up to a widened window
+     * of recent rows and filters in memory — matches FlipperAgent's audit_query semantics without
+     * requiring a specialized DAO index. [commandActionFilter] is compared against the serialized
+     * CommandAction inside commandJson; [riskFilter] against the persisted risk level string.
+     */
+    suspend fun queryRecent(
+        limit: Int,
+        commandActionFilter: String?,
+        riskFilter: RiskLevel?,
+    ): List<AuditEntry> {
+        val effectiveLimit = limit.coerceIn(1, 500)
+        // Widen the DAO pull so filters have material to prune. Cap conservatively — this is
+        // called on a background dispatcher from the executor and should stay cheap.
+        val pulled = auditDao.getRecentEntriesSync(effectiveLimit * 5)
+        val filtered = pulled.asSequence()
+            .filter { row ->
+                val actionOk = commandActionFilter?.let { needle ->
+                    row.commandJson?.contains("\"action\":\"$needle\"", ignoreCase = true) == true
+                } ?: true
+                val riskOk = riskFilter?.let { rl -> row.riskLevel == rl.name } ?: true
+                actionOk && riskOk
+            }
+            .take(effectiveLimit)
+            .map { it.toAuditEntry(json) }
+            .toList()
+        return filtered
+    }
+
+    /**
      * Get summary statistics for a session
      */
     suspend fun getSessionSummary(sessionId: String): AuditSummary {

@@ -5,13 +5,14 @@ import androidx.room.*
 import kotlinx.coroutines.flow.Flow
 
 @Database(
-    entities = [AuditEntryEntity::class, ChatMessageEntity::class],
-    version = 2,
+    entities = [AuditEntryEntity::class, ChatMessageEntity::class, VulnFindingEntity::class],
+    version = 3,
     exportSchema = false
 )
 abstract class VesperDatabase : RoomDatabase() {
     abstract fun auditDao(): AuditDao
     abstract fun chatDao(): ChatDao
+    abstract fun vulnDao(): VulnDao
 
     companion object {
         @Volatile
@@ -126,3 +127,41 @@ data class ChatSessionSummary(
     val lastTimestamp: Long,
     val messageCount: Int
 )
+
+/**
+ * Vulnerability finding recorded during an offensive-security engagement.
+ * Ported from FlipperAgent's vuln_triage module (JSON file → Room table).
+ * Statuses: submitted, confirmed, rejected, false_positive.
+ * Severities: critical, high, medium, low.
+ */
+@Entity(tableName = "vuln_findings")
+data class VulnFindingEntity(
+    @PrimaryKey val id: String,
+    val submittedAt: Long,
+    val target: String,
+    val vulnType: String,
+    val description: String,
+    val evidence: String,
+    val severity: String,
+    val complexity: Int,
+    val status: String,
+    val reproductionAttempts: Int = 0,
+    val validatedAt: Long? = null,
+    /** JSON array of {timestamp, reproduced, notes} objects, appended per vuln_validate call. */
+    val validationNotesJson: String = "[]"
+)
+
+@Dao
+interface VulnDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(finding: VulnFindingEntity)
+
+    @Query("SELECT * FROM vuln_findings WHERE id = :id LIMIT 1")
+    suspend fun getById(id: String): VulnFindingEntity?
+
+    @Query("SELECT * FROM vuln_findings ORDER BY submittedAt DESC")
+    suspend fun getAll(): List<VulnFindingEntity>
+
+    @Query("DELETE FROM vuln_findings")
+    suspend fun deleteAll()
+}

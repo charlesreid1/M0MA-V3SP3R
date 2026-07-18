@@ -1,5 +1,9 @@
 package com.vesper.flipper.domain.executor
 
+import com.vesper.flipper.ai.BadUsbRequest
+import com.vesper.flipper.ai.PayloadEngine
+import com.vesper.flipper.ai.PayloadProgress
+import com.vesper.flipper.ai.PayloadResult
 import com.vesper.flipper.ble.BleReconService
 import com.vesper.flipper.ble.FlipperFileSystem
 import com.vesper.flipper.data.SettingsStore
@@ -7,6 +11,7 @@ import com.vesper.flipper.domain.model.*
 import com.vesper.flipper.domain.service.AuditService
 import com.vesper.flipper.domain.service.DiffService
 import com.vesper.flipper.domain.service.PermissionService
+import com.vesper.flipper.domain.service.VulnTriageService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -38,7 +43,9 @@ class CommandExecutor @Inject constructor(
     private val diffService: DiffService,
     private val forgeEngine: ForgeEngine,
     private val settingsStore: SettingsStore,
-    private val bleRecon: BleReconService
+    private val bleRecon: BleReconService,
+    private val vulnTriage: VulnTriageService,
+    private val payloadEngine: PayloadEngine
 ) {
 
     private val pendingApprovals = ConcurrentHashMap<String, PendingApproval>()
@@ -816,6 +823,155 @@ class CommandExecutor @Inject constructor(
                 )
             }
 
+            // ── Vulnerability triage (Room-backed) ────────────────────
+            CommandAction.VULN_SUBMIT -> {
+                val severity = VulnTriageService.Severity.from(command.args.severity)
+                    ?: throw IllegalArgumentException("severity must be one of critical/high/medium/low")
+                val complexity = command.args.complexity
+                    ?: throw IllegalArgumentException("complexity (1-10) required")
+                val finding = vulnTriage.submit(
+                    VulnTriageService.SubmitRequest(
+                        target = requireNonBlank(command.args.target, "target"),
+                        vulnType = requireNonBlank(command.args.vulnType, "vuln_type"),
+                        description = requireNonBlank(command.args.description, "description"),
+                        evidence = requireNonBlank(command.args.evidence, "evidence"),
+                        severity = severity,
+                        complexity = complexity,
+                    )
+                )
+                CommandResultData(
+                    content = vulnTriage.renderFinding(finding, prefix = "Submitted"),
+                    message = "Submitted vulnerability ${finding.id} (${finding.severity.uppercase()})"
+                )
+            }
+
+            CommandAction.VULN_VALIDATE -> {
+                val vulnId = requireNonBlank(command.args.vulnId, "vuln_id")
+                val reproduced = command.args.reproduced
+                    ?: throw IllegalArgumentException("reproduced (boolean) required")
+                val updated = vulnTriage.validate(
+                    VulnTriageService.ValidateRequest(
+                        vulnId = vulnId,
+                        reproduced = reproduced,
+                        notes = command.args.notes,
+                    )
+                ) ?: throw IllegalArgumentException("Vulnerability $vulnId not found")
+                CommandResultData(
+                    content = vulnTriage.renderFinding(updated, prefix = "Validated"),
+                    message = "Validated ${updated.id}: ${updated.status.uppercase()} (attempts=${updated.reproductionAttempts})"
+                )
+            }
+
+            CommandAction.VULN_LIST -> {
+                val filters = VulnTriageService.ListFilters(
+                    target = command.args.target?.takeIf { it.isNotBlank() },
+                    severity = VulnTriageService.Severity.from(command.args.severity),
+                    status = VulnTriageService.Status.from(command.args.status),
+                )
+                val findings = vulnTriage.list(filters)
+                CommandResultData(
+                    content = vulnTriage.renderList(findings),
+                    message = "Listed ${findings.size} vulnerability finding(s)"
+                )
+            }
+
+            CommandAction.VULN_CLASSIFY -> {
+                val vulnType = requireNonBlank(command.args.vulnType, "vuln_type")
+                val result = vulnTriage.classify(vulnType, command.args.vulnId)
+                CommandResultData(
+                    content = vulnTriage.renderClassification(result),
+                    message = "Classified $vulnType → ${result.severity.wire.uppercase()}"
+                )
+            }
+
+            // ── Audit query ───────────────────────────────────────────
+            CommandAction.AUDIT_QUERY -> {
+                val limit = command.args.limit ?: 20
+                val actionFilter = command.args.command?.trim()?.takeIf { it.isNotEmpty() }
+                val riskFilter = command.args.riskLevel?.trim()?.uppercase()?.takeIf { it.isNotEmpty() }
+                    ?.let { raw ->
+                        try {
+                            RiskLevel.valueOf(raw)
+                        } catch (e: IllegalArgumentException) {
+                            throw IllegalArgumentException(
+                                "risk_level must be one of LOW/MEDIUM/HIGH/BLOCKED, got '$raw'"
+                            )
+                        }
+                    }
+                val entries = auditService.queryRecent(limit, actionFilter, riskFilter)
+                CommandResultData(
+                    content = renderAuditEntries(entries),
+                    message = "Audit query: ${entries.size} entr(y|ies)"
+                )
+            }
+
+            // ── BadUSB helpers ───────────────────────────────────────
+            CommandAction.BADUSB_GENERATE -> {
+                val description = command.args.description
+                    ?: command.args.prompt
+                    ?: command.args.command
+                    ?: throw IllegalArgumentException("description of BadUSB script required")
+                val platform = parseBadUsbPlatform(command.args.platform)
+                val result = payloadEngine.generateBadUsb(
+                    request = BadUsbRequest(description = description, platform = platform),
+                    onProgress = { _: PayloadProgress -> },
+                )
+                when (result) {
+                    is PayloadResult.Success -> CommandResultData(
+                        content = result.payload,
+                        message = "Generated BadUSB script (${platform})"
+                    )
+                    is PayloadResult.Error -> throw IllegalStateException(
+                        "BadUSB generation failed: ${result.message}"
+                    )
+                }
+            }
+
+            CommandAction.BADUSB_VALIDATE -> {
+                val script = command.args.content
+                    ?: throw IllegalArgumentException("BadUSB script content required")
+                val platform = parseBadUsbPlatform(command.args.platform)
+                val validated = payloadEngine.validateBadUsb(script, platform).getOrThrow()
+                CommandResultData(
+                    content = renderBadUsbValidation(validated),
+                    message = "Validated BadUSB (valid=${validated.isValid}, errors=${validated.errors.size})"
+                )
+            }
+
+            CommandAction.BADUSB_WRITE -> {
+                val script = command.args.content
+                    ?: throw IllegalArgumentException("BadUSB script content required")
+                val filename = requireBadUsbFilename(command.args.filename)
+                val platform = parseBadUsbPlatform(command.args.platform)
+                val validated = payloadEngine.validateBadUsb(script, platform).getOrNull()
+                if (validated != null && !validated.isValid && validated.errors.isNotEmpty()) {
+                    throw IllegalStateException(
+                        "Refusing to write: BadUSB validation failed with errors: ${validated.errors.joinToString("; ")}"
+                    )
+                }
+                val path = "/ext/badusb/$filename"
+                fileSystem.writeFile(path, script).getOrThrow()
+                CommandResultData(
+                    content = "Wrote validated BadUSB script to $path (${script.length} chars).",
+                    message = "Saved BadUSB → $path"
+                )
+            }
+
+            CommandAction.BADUSB_DIFF -> {
+                val path = command.args.path
+                    ?: throw IllegalArgumentException("path to existing BadUSB script required")
+                val proposed = command.args.proposedContent
+                    ?: command.args.content
+                    ?: throw IllegalArgumentException("proposed_content (or content) required")
+                val existing = fileSystem.readFile(path).getOrElse { "" }
+                val diff = diffService.computeDiff(existing.takeIf { it.isNotBlank() }, proposed)
+                CommandResultData(
+                    content = diff.unifiedDiff,
+                    diff = diff,
+                    message = "Diff for $path: +${diff.linesAdded} / -${diff.linesRemoved}"
+                )
+            }
+
             // REQUEST_PHOTO is intercepted by VesperAgent before reaching here.
             // This stub exists only so the exhaustive when compiles.
             CommandAction.REQUEST_PHOTO -> {
@@ -895,6 +1051,66 @@ class CommandExecutor @Inject constructor(
             }
             if (devices.size > 50) append("(${devices.size - 50} more truncated)")
         }.trim()
+    }
+
+    // ─── Vuln / BadUSB / audit helpers ────────────────────────────────────────
+
+    private fun requireNonBlank(v: String?, name: String): String {
+        val trimmed = v?.trim().orEmpty()
+        require(trimmed.isNotEmpty()) { "$name required" }
+        return trimmed
+    }
+
+    private fun requireBadUsbFilename(v: String?): String {
+        val trimmed = v?.trim().orEmpty()
+        require(trimmed.isNotEmpty()) { "filename required" }
+        require(!trimmed.contains('/') && !trimmed.contains('\\')) {
+            "filename must not contain path separators"
+        }
+        require(!trimmed.contains("..")) { "filename must not contain '..'" }
+        return if (trimmed.endsWith(".txt", ignoreCase = true)) trimmed else "$trimmed.txt"
+    }
+
+    private fun parseBadUsbPlatform(raw: String?): BadUsbPlatform =
+        when (raw?.trim()?.lowercase()) {
+            null, "" -> BadUsbPlatform.WINDOWS
+            "windows" -> BadUsbPlatform.WINDOWS
+            "macos", "mac" -> BadUsbPlatform.MACOS
+            "linux" -> BadUsbPlatform.LINUX
+            else -> throw IllegalArgumentException("platform must be windows|macos|linux, got '$raw'")
+        }
+
+    private fun renderBadUsbValidation(v: com.vesper.flipper.ai.ValidatedBadUsbScript): String =
+        buildString {
+            appendLine("Validation: ${if (v.isValid) "OK" else "issues found"}")
+            if (v.errors.isNotEmpty()) {
+                appendLine("Errors:")
+                v.errors.forEach { appendLine("  - $it") }
+            }
+            if (v.warnings.isNotEmpty()) {
+                appendLine("Warnings:")
+                v.warnings.forEach { appendLine("  - $it") }
+            }
+            if (v.optimizations.isNotEmpty()) {
+                appendLine("Optimizations:")
+                v.optimizations.forEach { appendLine("  - $it") }
+            }
+            appendLine()
+            appendLine("Cleaned script:")
+            append(v.script)
+        }.trimEnd()
+
+    private fun renderAuditEntries(entries: List<AuditEntry>): String {
+        if (entries.isEmpty()) return "No audit entries matched."
+        return buildString {
+            appendLine("Audit query: ${entries.size} entr(y|ies) (most recent first)")
+            entries.forEach { e ->
+                appendLine(
+                    "  ${e.timestamp} | ${e.actionType} | risk=${e.riskLevel ?: "-"} | session=${e.sessionId.take(8)}"
+                )
+                e.command?.let { appendLine("    action=${it.action.name}") }
+            }
+        }.trimEnd()
     }
 
     private fun renderGattProfile(address: String, profile: BleReconService.GattProfile): String {

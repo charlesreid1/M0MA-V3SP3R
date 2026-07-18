@@ -40,6 +40,15 @@
         "rfid_write",
         "ibutton_emulate",
         "badusb_execute",
+        "badusb_generate",
+        "badusb_validate",
+        "badusb_write",
+        "badusb_diff",
+        "vuln_submit",
+        "vuln_validate",
+        "vuln_list",
+        "vuln_classify",
+        "audit_query",
         "gpio_read",
         "gpio_set",
         "gpio_mode",
@@ -224,6 +233,89 @@
         "with_response": {
           "type": "boolean",
           "description": "For ble_write_char: true = write-with-response (default), false = write-without-response"
+        },
+        "target": {
+          "type": "string",
+          "description": "Target identifier (IP, MAC, hostname) — required by vuln_submit; substring filter for vuln_list"
+        },
+        "vuln_type": {
+          "type": "string",
+          "description": "Vulnerability type keyword (e.g. default_creds, writable_ble, sqli). Required by vuln_submit and vuln_classify"
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description — required by vuln_submit and badusb_generate"
+        },
+        "evidence": {
+          "type": "string",
+          "description": "Raw supporting evidence (tool output, response body) — required by vuln_submit"
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "critical",
+            "high",
+            "medium",
+            "low"
+          ],
+          "description": "Vulnerability severity — required by vuln_submit; optional filter for vuln_list"
+        },
+        "complexity": {
+          "type": "integer",
+          "description": "Exploitation complexity 1–10 (1 = trivial, 10 = expert). Required by vuln_submit"
+        },
+        "vuln_id": {
+          "type": "string",
+          "description": "Vulnerability finding UUID prefix returned by vuln_submit. Required by vuln_validate; optional for vuln_classify (reclassify existing finding)"
+        },
+        "reproduced": {
+          "type": "boolean",
+          "description": "Whether the vulnerability was reproduced during validation. Required by vuln_validate"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Free-form validation notes appended to the finding (for vuln_validate)"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "submitted",
+            "confirmed",
+            "rejected",
+            "false_positive"
+          ],
+          "description": "Finding status filter for vuln_list"
+        },
+        "limit": {
+          "type": "integer",
+          "description": "Row limit for audit_query (default 20)"
+        },
+        "risk_level": {
+          "type": "string",
+          "enum": [
+            "LOW",
+            "MEDIUM",
+            "HIGH",
+            "BLOCKED"
+          ],
+          "description": "Risk-level filter for audit_query"
+        },
+        "platform": {
+          "type": "string",
+          "enum": [
+            "windows",
+            "macos",
+            "linux"
+          ],
+          "description": "Target OS for badusb_generate / badusb_validate / badusb_write (default: windows)"
+        },
+        "filename": {
+          "type": "string",
+          "description": "BadUSB script filename under /ext/badusb/ (e.g. 'demo.txt'). Required by badusb_write"
+        },
+        "proposed_content": {
+          "type": "string",
+          "description": "Proposed replacement content for badusb_diff (also accepts `content`)"
         }
       }
     },
@@ -480,6 +572,46 @@
       },
       "justification": "Operator wants to trigger a state change on the authorized test device",
       "expected_effect": "Write the hex payload to the characteristic; requires HIGH-risk approval"
+    },
+    {
+      "action": "vuln_submit",
+      "args": {
+        "target": "192.168.1.10",
+        "vuln_type": "default_creds",
+        "description": "SSH login succeeded with admin:admin",
+        "evidence": "<sshpass output showing successful auth>",
+        "severity": "critical",
+        "complexity": 1
+      },
+      "justification": "Operator records a discovered vulnerability during an engagement",
+      "expected_effect": "Assign an ID, persist the finding, mark status=submitted"
+    },
+    {
+      "action": "vuln_list",
+      "args": {
+        "severity": "critical",
+        "status": "confirmed"
+      },
+      "justification": "Operator wants a summary of every confirmed critical finding",
+      "expected_effect": "Return matching findings sorted by severity"
+    },
+    {
+      "action": "audit_query",
+      "args": {
+        "limit": 20,
+        "risk_level": "HIGH"
+      },
+      "justification": "Operator wants to review recent HIGH-risk actions from this session",
+      "expected_effect": "Return the last 20 HIGH-risk audit entries"
+    },
+    {
+      "action": "badusb_generate",
+      "args": {
+        "description": "open notepad and type 'Hello, world'",
+        "platform": "windows"
+      },
+      "justification": "Operator wants an authored BadUSB script for a demo",
+      "expected_effect": "Return a validated DuckyScript payload; no device effect"
     }
   ]
 }

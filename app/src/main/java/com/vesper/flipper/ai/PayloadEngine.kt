@@ -93,6 +93,15 @@ class PayloadEngine @Inject constructor(
     }
 
     /**
+     * Public entry point that runs only step 2 (validate + clean) against an already-authored
+     * script. Used by BADUSB_VALIDATE (chat) to lint scripts without regenerating from scratch.
+     */
+    suspend fun validateBadUsb(
+        script: String,
+        platform: BadUsbPlatform,
+    ): Result<ValidatedBadUsbScript> = step2ValidateBadUsb(script, platform)
+
+    /**
      * STEP 2: Validate and clean BadUSB script
      */
     private suspend fun step2ValidateBadUsb(
