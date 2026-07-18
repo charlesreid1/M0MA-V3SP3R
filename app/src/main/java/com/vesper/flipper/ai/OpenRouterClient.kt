@@ -1206,6 +1206,39 @@ class OpenRouterClient @Inject constructor(
                 if (args.address.isNullOrBlank()) "address" else null,
                 if (args.uuid.isNullOrBlank()) "uuid" else null
             )
+            CommandAction.VULN_SUBMIT -> listOfNotNull(
+                if (args.target.isNullOrBlank()) "target" else null,
+                if (args.vulnType.isNullOrBlank()) "vuln_type" else null,
+                if (args.description.isNullOrBlank()) "description" else null,
+                if (args.evidence.isNullOrBlank()) "evidence" else null,
+                if (args.severity.isNullOrBlank()) "severity" else null,
+                if (args.complexity == null) "complexity" else null
+            )
+            CommandAction.VULN_VALIDATE -> listOfNotNull(
+                if (args.vulnId.isNullOrBlank()) "vuln_id" else null,
+                if (args.reproduced == null) "reproduced" else null
+            )
+            CommandAction.VULN_LIST -> emptyList()
+            CommandAction.VULN_CLASSIFY -> listOfNotNull(
+                if (args.vulnType.isNullOrBlank()) "vuln_type" else null
+            )
+            CommandAction.AUDIT_QUERY -> emptyList()
+            CommandAction.BADUSB_GENERATE -> {
+                if (args.description.isNullOrBlank() && args.prompt.isNullOrBlank() && args.command.isNullOrBlank()) {
+                    listOf("description")
+                } else emptyList()
+            }
+            CommandAction.BADUSB_VALIDATE -> listOfNotNull(
+                if (args.content.isNullOrBlank()) "content" else null
+            )
+            CommandAction.BADUSB_WRITE -> listOfNotNull(
+                if (args.filename.isNullOrBlank()) "filename" else null,
+                if (args.content.isNullOrBlank()) "content" else null
+            )
+            CommandAction.BADUSB_DIFF -> listOfNotNull(
+                if (args.path.isNullOrBlank()) "path" else null,
+                if (args.proposedContent.isNullOrBlank() && args.content.isNullOrBlank()) "proposed_content" else null
+            )
         }
     }
 
@@ -1311,6 +1344,24 @@ class OpenRouterClient @Inject constructor(
                 """{"action":"ble_write_char","args":{"address":"AA:BB:CC:DD:EE:FF","uuid":"...","content":"01FF00","hex":true,"with_response":true}}"""
             CommandAction.BLE_SUBSCRIBE ->
                 """{"action":"ble_subscribe","args":{"address":"AA:BB:CC:DD:EE:FF","uuid":"...","duration":5}}"""
+            CommandAction.VULN_SUBMIT ->
+                """{"action":"vuln_submit","args":{"target":"192.168.1.10","vuln_type":"default_creds","description":"SSH login as admin:admin","evidence":"<sshpass output>","severity":"critical","complexity":1}}"""
+            CommandAction.VULN_VALIDATE ->
+                """{"action":"vuln_validate","args":{"vuln_id":"a1b2c3d4","reproduced":true,"notes":"reproduced on second attempt"}}"""
+            CommandAction.VULN_LIST ->
+                """{"action":"vuln_list","args":{"severity":"critical"}}"""
+            CommandAction.VULN_CLASSIFY ->
+                """{"action":"vuln_classify","args":{"vuln_type":"default_creds"}}"""
+            CommandAction.AUDIT_QUERY ->
+                """{"action":"audit_query","args":{"limit":20,"risk_level":"HIGH"}}"""
+            CommandAction.BADUSB_GENERATE ->
+                """{"action":"badusb_generate","args":{"description":"open notepad and type Hello","platform":"windows"}}"""
+            CommandAction.BADUSB_VALIDATE ->
+                """{"action":"badusb_validate","args":{"content":"DELAY 500\nGUI r\nDELAY 200\nSTRING notepad\nENTER"}}"""
+            CommandAction.BADUSB_WRITE ->
+                """{"action":"badusb_write","args":{"filename":"demo.txt","content":"DELAY 500\nGUI r\n..."}}"""
+            CommandAction.BADUSB_DIFF ->
+                """{"action":"badusb_diff","args":{"path":"/ext/badusb/demo.txt","proposed_content":"DELAY 500\nGUI r\n..."}}"""
         }
     }
 

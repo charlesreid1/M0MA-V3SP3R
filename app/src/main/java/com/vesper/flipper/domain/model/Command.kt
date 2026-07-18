@@ -119,6 +119,33 @@ enum class CommandAction {
     @SerialName("badusb_execute")
     BADUSB_EXECUTE,
 
+    @SerialName("badusb_generate")
+    BADUSB_GENERATE,
+
+    @SerialName("badusb_validate")
+    BADUSB_VALIDATE,
+
+    @SerialName("badusb_write")
+    BADUSB_WRITE,
+
+    @SerialName("badusb_diff")
+    BADUSB_DIFF,
+
+    @SerialName("vuln_submit")
+    VULN_SUBMIT,
+
+    @SerialName("vuln_validate")
+    VULN_VALIDATE,
+
+    @SerialName("vuln_list")
+    VULN_LIST,
+
+    @SerialName("vuln_classify")
+    VULN_CLASSIFY,
+
+    @SerialName("audit_query")
+    AUDIT_QUERY,
+
     @SerialName("gpio_read")
     GPIO_READ,
 
@@ -243,7 +270,30 @@ data class CommandArgs(
     val uuid: String? = null,
     val hex: Boolean? = null,
     @SerialName("with_response")
-    val withResponse: Boolean? = null
+    val withResponse: Boolean? = null,
+
+    // Vuln triage + audit query + BadUSB helpers.
+    // Reuses across actions: `command` for BADUSB_GENERATE description fallback;
+    // `content` for BadUSB script bodies; `path` for BADUSB_DIFF existing script path.
+    val target: String? = null,
+    @SerialName("vuln_type")
+    val vulnType: String? = null,
+    val description: String? = null,
+    val evidence: String? = null,
+    val severity: String? = null,
+    val complexity: Int? = null,
+    @SerialName("vuln_id")
+    val vulnId: String? = null,
+    val reproduced: Boolean? = null,
+    val notes: String? = null,
+    val status: String? = null,
+    val limit: Int? = null,
+    @SerialName("risk_level")
+    val riskLevel: String? = null,
+    val platform: String? = null,
+    val filename: String? = null,
+    @SerialName("proposed_content")
+    val proposedContent: String? = null
 )
 
 /**

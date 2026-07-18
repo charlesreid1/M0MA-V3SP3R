@@ -58,7 +58,13 @@ class RiskAssessor @Inject constructor(
             CommandAction.RFID_READ,
             CommandAction.GPIO_READ,
             CommandAction.MUSIC_GET_FORMAT,
-            CommandAction.BLE_SCAN_TARGETS -> {
+            CommandAction.BLE_SCAN_TARGETS,
+            CommandAction.VULN_SUBMIT,
+            CommandAction.VULN_LIST,
+            CommandAction.VULN_CLASSIFY,
+            CommandAction.AUDIT_QUERY,
+            CommandAction.BADUSB_VALIDATE,
+            CommandAction.BADUSB_DIFF -> {
                 RiskAssessment(
                     level = RiskLevel.LOW,
                     reason = "Read-only operation",
@@ -366,6 +372,39 @@ class RiskAssessor @Inject constructor(
                     affectedPaths = paths,
                     requiresDiff = false,
                     requiresConfirmation = true
+                )
+            }
+
+            // MEDIUM risk: mutates a vulnerability finding's status
+            CommandAction.VULN_VALIDATE -> {
+                RiskAssessment(
+                    level = RiskLevel.MEDIUM,
+                    reason = "Vulnerability finding validation",
+                    affectedPaths = paths,
+                    requiresDiff = false,
+                    requiresConfirmation = true
+                )
+            }
+
+            // MEDIUM risk: LLM authoring for a payload that may later be shipped for execution
+            CommandAction.BADUSB_GENERATE -> {
+                RiskAssessment(
+                    level = RiskLevel.MEDIUM,
+                    reason = "AI payload generation (BadUSB)",
+                    affectedPaths = paths,
+                    requiresDiff = false,
+                    requiresConfirmation = true
+                )
+            }
+
+            // MEDIUM risk: writes a BadUSB script to /ext/badusb/ (parallels WRITE_FILE)
+            CommandAction.BADUSB_WRITE -> {
+                RiskAssessment(
+                    level = RiskLevel.MEDIUM,
+                    reason = "BadUSB script write to Flipper",
+                    affectedPaths = paths,
+                    requiresDiff = true,
+                    requiresConfirmation = false
                 )
             }
 
