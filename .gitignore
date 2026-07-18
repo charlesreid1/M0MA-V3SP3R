@@ -9,6 +9,8 @@ local.properties
 .externalNativeBuild
 .cxx
 /app/build
+/buildSrc/build
+/buildSrc/.gradle
 
 # Signing keys — NEVER commit these
 *.jks

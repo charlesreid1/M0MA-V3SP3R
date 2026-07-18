@@ -93,7 +93,12 @@
         },
         "payload_type": {
           "type": "string",
-          "enum": ["subghz", "ir", "badusb", "nfc"],
+          "enum": [
+            "subghz",
+            "ir",
+            "badusb",
+            "nfc"
+          ],
           "description": "Type of payload to generate (for forge_payload action)"
         },
         "filter": {
@@ -171,7 +176,12 @@
       "description": "What you expect this action to accomplish"
     }
   },
-  "required": ["action", "args", "justification", "expected_effect"],
+  "required": [
+    "action",
+    "args",
+    "justification",
+    "expected_effect"
+  ],
   "examples": [
     {
       "action": "list_directory",

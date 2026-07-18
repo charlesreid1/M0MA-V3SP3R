@@ -1,4 +1,6 @@
 import java.util.Properties
+import schema.GenerateExecuteCommandSchemaTask
+import schema.VerifyExecuteCommandSchemaTask
 
 plugins {
     id("com.android.application")
@@ -155,4 +157,27 @@ dependencies {
 
     // Diff utils
     implementation("io.github.java-diff-utils:java-diff-utils:4.12")
+}
+
+// ─── execute_command JSON schema generation ────────────────────────────────
+// Regenerate: ./gradlew :app:generateExecuteCommandSchema
+// Verify in sync (for CI): ./gradlew :app:verifyExecuteCommandSchema
+
+private val commandKt = rootProject.file(
+    "app/src/main/java/com/vesper/flipper/domain/model/Command.kt"
+)
+private val committedSchema = rootProject.file("docs/execute_command_schema.json")
+
+tasks.register<GenerateExecuteCommandSchemaTask>("generateExecuteCommandSchema") {
+    group = "vesper"
+    description = "Regenerate docs/execute_command_schema.json from CommandAction + arg-shape spec."
+    commandKtFile.set(commandKt)
+    outputFile.set(committedSchema)
+}
+
+tasks.register<VerifyExecuteCommandSchemaTask>("verifyExecuteCommandSchema") {
+    group = "verification"
+    description = "Fail if docs/execute_command_schema.json is out of sync with CommandAction."
+    commandKtFile.set(commandKt)
+    committedFile.set(committedSchema)
 }
