@@ -48,6 +48,11 @@
         "music_get_format",
         "get_system_info",
         "ble_spam",
+        "ble_scan_targets",
+        "ble_enumerate",
+        "ble_read_char",
+        "ble_write_char",
+        "ble_subscribe",
         "led_control",
         "vibro_control",
         "browse_repo",
@@ -138,7 +143,7 @@
         },
         "address": {
           "type": "string",
-          "description": "Address/identifier for hardware transmit operations"
+          "description": "Address/identifier: hex address for SubGHz transmit; BLE MAC (AA:BB:CC:DD:EE:FF) for ble_enumerate/read_char/write_char/subscribe"
         },
         "signal_name": {
           "type": "string",
@@ -206,7 +211,19 @@
         },
         "duration": {
           "type": "number",
-          "description": "Listen duration in seconds for passive capture actions (subghz_receive, ir_receive, nfc_detect, nfc_field, rfid_read)"
+          "description": "Listen duration in seconds for passive capture actions (subghz_receive, ir_receive, nfc_detect, nfc_field, rfid_read); connection timeout for ble_enumerate/ble_read_char; listen window for ble_subscribe"
+        },
+        "uuid": {
+          "type": "string",
+          "description": "GATT characteristic UUID for BLE recon (128-bit like 00002a00-… or 4-hex-digit short form)"
+        },
+        "hex": {
+          "type": "boolean",
+          "description": "For ble_write_char: true if content is hex-encoded bytes (default), false for UTF-8 text"
+        },
+        "with_response": {
+          "type": "boolean",
+          "description": "For ble_write_char: true = write-with-response (default), false = write-without-response"
         }
       }
     },
@@ -436,6 +453,33 @@
       },
       "justification": "User wants the Flipper to play a short melody",
       "expected_effect": "Write the FMF song to /ext/music_player/ and launch Music Player"
+    },
+    {
+      "action": "ble_scan_targets",
+      "args": {
+        "duration": 5
+      },
+      "justification": "Operator wants to enumerate nearby BLE devices before choosing a target",
+      "expected_effect": "Return device list (address, RSSI, name, advertised services)"
+    },
+    {
+      "action": "ble_enumerate",
+      "args": {
+        "address": "AA:BB:CC:DD:EE:FF"
+      },
+      "justification": "Operator wants the full GATT attack surface for a scanned device",
+      "expected_effect": "Return services and characteristics with read/write/notify properties"
+    },
+    {
+      "action": "ble_write_char",
+      "args": {
+        "address": "AA:BB:CC:DD:EE:FF",
+        "uuid": "0000ff01-0000-1000-8000-00805f9b34fb",
+        "content": "01FF00",
+        "hex": true
+      },
+      "justification": "Operator wants to trigger a state change on the authorized test device",
+      "expected_effect": "Write the hex payload to the characteristic; requires HIGH-risk approval"
     }
   ]
 }

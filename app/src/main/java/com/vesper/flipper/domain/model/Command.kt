@@ -143,6 +143,21 @@ enum class CommandAction {
     @SerialName("ble_spam")
     BLE_SPAM,
 
+    @SerialName("ble_scan_targets")
+    BLE_SCAN_TARGETS,
+
+    @SerialName("ble_enumerate")
+    BLE_ENUMERATE,
+
+    @SerialName("ble_read_char")
+    BLE_READ_CHAR,
+
+    @SerialName("ble_write_char")
+    BLE_WRITE_CHAR,
+
+    @SerialName("ble_subscribe")
+    BLE_SUBSCRIBE,
+
     @SerialName("led_control")
     LED_CONTROL,
 
@@ -222,7 +237,13 @@ data class CommandArgs(
     val keyType: String? = null,
     @SerialName("key_data")
     val keyData: String? = null,
-    val duration: Double? = null
+    val duration: Double? = null,
+
+    // BLE recon args (`address` reused from hardware transmit block — MAC or UUID target)
+    val uuid: String? = null,
+    val hex: Boolean? = null,
+    @SerialName("with_response")
+    val withResponse: Boolean? = null
 )
 
 /**

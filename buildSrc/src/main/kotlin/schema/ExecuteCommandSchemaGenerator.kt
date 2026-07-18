@@ -73,6 +73,11 @@ object ExecuteCommandSchemaGenerator {
         "music_get_format",
         "get_system_info",
         "ble_spam",
+        "ble_scan_targets",
+        "ble_enumerate",
+        "ble_read_char",
+        "ble_write_char",
+        "ble_subscribe",
         "led_control",
         "vibro_control",
         "browse_repo",
@@ -112,7 +117,7 @@ object ExecuteCommandSchemaGenerator {
         ArgSpec("app_args", "string", "Arguments passed to the launched app; also used as the ble_spam mode string"),
         ArgSpec("frequency", "integer", "Frequency in Hz for SubGHz operations"),
         ArgSpec("protocol", "string", "Protocol name for SubGHz/IR/NFC operations"),
-        ArgSpec("address", "string", "Address/identifier for hardware transmit operations"),
+        ArgSpec("address", "string", "Address/identifier: hex address for SubGHz transmit; BLE MAC (AA:BB:CC:DD:EE:FF) for ble_enumerate/read_char/write_char/subscribe"),
         ArgSpec("signal_name", "string", "Named signal for IR transmit operations"),
         ArgSpec("enabled", "boolean", "On/off state (for vibro_control action; defaults to true)"),
         ArgSpec("red", "integer", "Red LED intensity 0-255 (for led_control action)"),
@@ -131,7 +136,10 @@ object ExecuteCommandSchemaGenerator {
         ArgSpec("duty_cycle", "number", "IR carrier duty cycle 0.0–1.0 (for ir_transmit_raw; defaults to 0.33)"),
         ArgSpec("key_type", "string", "RFID key type, e.g. EM4100 or HIDProx (for rfid_write)"),
         ArgSpec("key_data", "string", "RFID key data payload (for rfid_write)"),
-        ArgSpec("duration", "number", "Listen duration in seconds for passive capture actions (subghz_receive, ir_receive, nfc_detect, nfc_field, rfid_read)"),
+        ArgSpec("duration", "number", "Listen duration in seconds for passive capture actions (subghz_receive, ir_receive, nfc_detect, nfc_field, rfid_read); connection timeout for ble_enumerate/ble_read_char; listen window for ble_subscribe"),
+        ArgSpec("uuid", "string", "GATT characteristic UUID for BLE recon (128-bit like 00002a00-… or 4-hex-digit short form)"),
+        ArgSpec("hex", "boolean", "For ble_write_char: true if content is hex-encoded bytes (default), false for UTF-8 text"),
+        ArgSpec("with_response", "boolean", "For ble_write_char: true = write-with-response (default), false = write-without-response"),
     )
 
     private data class Example(
@@ -250,6 +258,20 @@ object ExecuteCommandSchemaGenerator {
         ),
             "User wants the Flipper to play a short melody",
             "Write the FMF song to /ext/music_player/ and launch Music Player"),
+        Example("ble_scan_targets", mapOf("duration" to i(5)),
+            "Operator wants to enumerate nearby BLE devices before choosing a target",
+            "Return device list (address, RSSI, name, advertised services)"),
+        Example("ble_enumerate", mapOf("address" to s("AA:BB:CC:DD:EE:FF")),
+            "Operator wants the full GATT attack surface for a scanned device",
+            "Return services and characteristics with read/write/notify properties"),
+        Example("ble_write_char", mapOf(
+            "address" to s("AA:BB:CC:DD:EE:FF"),
+            "uuid" to s("0000ff01-0000-1000-8000-00805f9b34fb"),
+            "content" to s("01FF00"),
+            "hex" to b(true),
+        ),
+            "Operator wants to trigger a state change on the authorized test device",
+            "Write the hex payload to the characteristic; requires HIGH-risk approval"),
     )
 
     // ─── Public entry points ──────────────────────────────────────────────────

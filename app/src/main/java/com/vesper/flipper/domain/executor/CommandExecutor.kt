@@ -1,5 +1,6 @@
 package com.vesper.flipper.domain.executor
 
+import com.vesper.flipper.ble.BleReconService
 import com.vesper.flipper.ble.FlipperFileSystem
 import com.vesper.flipper.data.SettingsStore
 import com.vesper.flipper.domain.model.*
@@ -36,7 +37,8 @@ class CommandExecutor @Inject constructor(
     private val auditService: AuditService,
     private val diffService: DiffService,
     private val forgeEngine: ForgeEngine,
-    private val settingsStore: SettingsStore
+    private val settingsStore: SettingsStore,
+    private val bleRecon: BleReconService
 ) {
 
     private val pendingApprovals = ConcurrentHashMap<String, PendingApproval>()
@@ -741,6 +743,79 @@ class CommandExecutor @Inject constructor(
                 "System info from Flipper"
             )
 
+            CommandAction.BLE_SCAN_TARGETS -> {
+                val durationSec = command.args.duration ?: 5.0
+                val nameFilter = command.args.command?.trim()?.takeIf { it.isNotEmpty() }
+                val rssiThreshold = command.args.value ?: -90
+                val devices = bleRecon.scan(
+                    durationMs = (durationSec * 1000).toLong(),
+                    nameFilter = nameFilter,
+                    rssiThreshold = rssiThreshold,
+                ).getOrThrow()
+                CommandResultData(
+                    content = renderBleScan(devices),
+                    message = "BLE scan: ${devices.size} device(s)"
+                )
+            }
+
+            CommandAction.BLE_ENUMERATE -> {
+                val address = requireBleAddress(command.args.address)
+                val timeoutMs = ((command.args.duration ?: 10.0) * 1000).toLong()
+                val profile = bleRecon.enumerate(address, timeoutMs).getOrThrow()
+                CommandResultData(
+                    content = renderGattProfile(address, profile),
+                    message = "Enumerated $address: ${profile.services.size} service(s)"
+                )
+            }
+
+            CommandAction.BLE_READ_CHAR -> {
+                val address = requireBleAddress(command.args.address)
+                val uuid = requireBleUuid(command.args.uuid)
+                val timeoutMs = ((command.args.duration ?: 10.0) * 1000).toLong()
+                val bytes = bleRecon.readCharacteristic(address, uuid, timeoutMs).getOrThrow()
+                CommandResultData(
+                    content = "$address $uuid → ${bytes.toHexString()} (${bytes.size} bytes)",
+                    message = "Read $uuid on $address"
+                )
+            }
+
+            CommandAction.BLE_WRITE_CHAR -> {
+                val address = requireBleAddress(command.args.address)
+                val uuid = requireBleUuid(command.args.uuid)
+                val raw = command.args.content
+                    ?: throw IllegalArgumentException("BLE write requires content (payload)")
+                val hex = command.args.hex ?: true
+                val bytes = if (hex) parseHexPayload(raw) else raw.toByteArray(Charsets.UTF_8)
+                val withResponse = command.args.withResponse ?: true
+                val timeoutMs = ((command.args.duration ?: 10.0) * 1000).toLong()
+                bleRecon.writeCharacteristic(address, uuid, bytes, withResponse, timeoutMs).getOrThrow()
+                CommandResultData(
+                    content = "Wrote ${bytes.size} byte(s) to $uuid on $address",
+                    message = "BLE write ($uuid, ${bytes.size} bytes${if (withResponse) "" else ", no-response"})"
+                )
+            }
+
+            CommandAction.BLE_SUBSCRIBE -> {
+                val address = requireBleAddress(command.args.address)
+                val uuid = requireBleUuid(command.args.uuid)
+                val listenSec = command.args.duration ?: 5.0
+                val notifications = bleRecon.subscribe(
+                    address = address,
+                    uuid = uuid,
+                    listenMs = (listenSec * 1000).toLong(),
+                    connectTimeoutMs = 10_000L,
+                ).getOrThrow()
+                val body = if (notifications.isEmpty()) {
+                    "no notifications received"
+                } else {
+                    notifications.joinToString("\n") { it.toHexString() }
+                }
+                CommandResultData(
+                    content = "$address $uuid over ${listenSec}s → ${notifications.size} notification(s)\n$body",
+                    message = "Collected ${notifications.size} BLE notification(s)"
+                )
+            }
+
             // REQUEST_PHOTO is intercepted by VesperAgent before reaching here.
             // This stub exists only so the exhaustive when compiles.
             CommandAction.REQUEST_PHOTO -> {
@@ -760,6 +835,80 @@ class CommandExecutor @Inject constructor(
     private suspend fun runCliAction(cli: String, message: String): CommandResultData {
         val output = fileSystem.executeCli(cli).getOrThrow()
         return CommandResultData(content = output, message = message)
+    }
+
+    // ─── BLE recon rendering + arg validation ─────────────────────────────────
+
+    private fun requireBleAddress(a: String?): String {
+        val addr = a?.trim().orEmpty()
+        require(addr.matches(BLE_MAC_REGEX)) {
+            "Invalid BLE address '$a'. Expected MAC like AA:BB:CC:DD:EE:FF."
+        }
+        return addr
+    }
+
+    private fun requireBleUuid(u: String?): UUID {
+        val raw = u?.trim().orEmpty()
+        require(raw.isNotEmpty()) { "BLE characteristic UUID required." }
+        return try {
+            // Accept the 16-bit short form (e.g. "2A00") by expanding to the base UUID.
+            if (raw.length == 4 && raw.all { it.isHexDigit() }) {
+                UUID.fromString("0000$raw-0000-1000-8000-00805f9b34fb")
+            } else {
+                UUID.fromString(raw)
+            }
+        } catch (e: IllegalArgumentException) {
+            throw IllegalArgumentException("Invalid BLE UUID '$u'.")
+        }
+    }
+
+    private fun parseHexPayload(raw: String): ByteArray {
+        val cleaned = raw.replace(Regex("\\s+"), "").replace(":", "")
+        require(cleaned.length % 2 == 0) { "Hex payload must have an even number of characters." }
+        require(cleaned.all { it.isHexDigit() }) { "Hex payload contains non-hex characters." }
+        return ByteArray(cleaned.length / 2) { i ->
+            cleaned.substring(i * 2, i * 2 + 2).toInt(16).toByte()
+        }
+    }
+
+    private fun Char.isHexDigit(): Boolean =
+        this in '0'..'9' || this in 'a'..'f' || this in 'A'..'F'
+
+    private fun ByteArray.toHexString(): String =
+        joinToString("") { "%02X".format(it) }
+
+    private fun renderBleScan(devices: List<BleReconService.ScannedDevice>): String {
+        if (devices.isEmpty()) return "No BLE devices matched."
+        return buildString {
+            appendLine("BLE scan (${devices.size} device(s), sorted by RSSI):")
+            devices.take(50).forEach { d ->
+                appendLine("  ${d.address}  RSSI=${d.rssi}  name=${d.name ?: "-"}")
+                if (d.serviceUuids.isNotEmpty()) {
+                    appendLine("    services: ${d.serviceUuids.joinToString(", ")}")
+                }
+                if (d.manufacturerData.isNotEmpty()) {
+                    val summary = d.manufacturerData.entries.joinToString(", ") { (id, bytes) ->
+                        "0x%04X=%s".format(id, bytes.joinToString("") { "%02X".format(it) })
+                    }
+                    appendLine("    mfg: $summary")
+                }
+            }
+            if (devices.size > 50) append("(${devices.size - 50} more truncated)")
+        }.trim()
+    }
+
+    private fun renderGattProfile(address: String, profile: BleReconService.GattProfile): String {
+        if (profile.services.isEmpty()) return "$address exposes no GATT services."
+        return buildString {
+            appendLine("GATT profile for $address (${profile.services.size} service(s)):")
+            profile.services.forEach { svc ->
+                appendLine("  service ${svc.uuid} (${svc.characteristics.size} char(s))")
+                svc.characteristics.forEach { ch ->
+                    val props = if (ch.properties.isEmpty()) "-" else ch.properties.joinToString(",")
+                    appendLine("    char ${ch.uuid}  [$props]")
+                }
+            }
+        }.trim()
     }
 
     private fun executeFapHubSearch(query: String): CommandResultData {
@@ -1504,6 +1653,7 @@ class CommandExecutor @Inject constructor(
         private const val USER_AGENT = "VesperFlipper/1.0 (Android)"
         private const val MAX_FAP_BYTES = 6 * 1024 * 1024
         private const val MAX_HTML_CHARS = 256_000
+        private val BLE_MAC_REGEX = Regex("^[0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5}$")
         private val HREF_FAP_REGEX = Regex(
             """href\s*=\s*["']([^"']+\.fap(?:\?[^"']*)?)["']""",
             RegexOption.IGNORE_CASE
