@@ -47,7 +47,17 @@ class RiskAssessor @Inject constructor(
             CommandAction.READ_FILE,
             CommandAction.GET_DEVICE_INFO,
             CommandAction.GET_STORAGE_INFO,
-            CommandAction.SEARCH_FAPHUB -> {
+            CommandAction.GET_SYSTEM_INFO,
+            CommandAction.SEARCH_FAPHUB,
+            CommandAction.APPS_LIST,
+            CommandAction.SUBGHZ_RECEIVE,
+            CommandAction.SUBGHZ_DECODE_RAW,
+            CommandAction.IR_RECEIVE,
+            CommandAction.NFC_DETECT,
+            CommandAction.NFC_FIELD,
+            CommandAction.RFID_READ,
+            CommandAction.GPIO_READ,
+            CommandAction.MUSIC_GET_FORMAT -> {
                 RiskAssessment(
                     level = RiskLevel.LOW,
                     reason = "Read-only operation",
@@ -289,6 +299,51 @@ class RiskAssessor @Inject constructor(
                 )
             }
 
+            // MEDIUM risk: IR raw transmission (arbitrary IR waveform)
+            CommandAction.IR_TRANSMIT_RAW -> {
+                RiskAssessment(
+                    level = RiskLevel.MEDIUM,
+                    reason = "Infrared raw signal transmission",
+                    affectedPaths = paths,
+                    requiresDiff = false,
+                    requiresConfirmation = true
+                )
+            }
+
+            // MEDIUM risk: GPIO writes drive external hardware
+            CommandAction.GPIO_SET,
+            CommandAction.GPIO_MODE -> {
+                RiskAssessment(
+                    level = RiskLevel.MEDIUM,
+                    reason = "GPIO pin write",
+                    affectedPaths = paths,
+                    requiresDiff = false,
+                    requiresConfirmation = true
+                )
+            }
+
+            // MEDIUM risk: writes a music file to /ext/ and launches Music Player
+            CommandAction.MUSIC_PLAY -> {
+                RiskAssessment(
+                    level = RiskLevel.MEDIUM,
+                    reason = "Play music file on Flipper",
+                    affectedPaths = paths,
+                    requiresDiff = false,
+                    requiresConfirmation = true
+                )
+            }
+
+            // HIGH risk: writes to a physical RFID tag
+            CommandAction.RFID_WRITE -> {
+                RiskAssessment(
+                    level = RiskLevel.HIGH,
+                    reason = "RFID tag write",
+                    affectedPaths = paths,
+                    requiresDiff = false,
+                    requiresConfirmation = true
+                )
+            }
+
             // HIGH risk: BadUSB executes keystrokes on a connected computer
             CommandAction.BADUSB_EXECUTE -> {
                 RiskAssessment(
@@ -441,7 +496,16 @@ class RiskAssessor @Inject constructor(
             "storage stat",
             // Harmless hardware feedback
             "led ",
-            "vibro "
+            "vibro ",
+            // Passive RF/tag capture and pin reads
+            "subghz rx",
+            "subghz decode_raw",
+            "ir rx",
+            "nfc detect",
+            "nfc field",
+            "rfid read",
+            "gpio read",
+            "loader list"
         )
 
         /**
@@ -450,7 +514,6 @@ class RiskAssessor @Inject constructor(
          */
         private val MEDIUM_CLI_PREFIXES = listOf(
             "loader open",
-            "loader list",
             "loader info",
             "subghz tx",
             "subghz tx_from_file",
@@ -470,9 +533,14 @@ class RiskAssessor @Inject constructor(
             "ble_scan",
             "blescan",
             "ble scan",
+            // GPIO writes drive external hardware; user confirms once.
+            "gpio set",
+            "gpio mode",
             // Note: badusb is HIGH risk via dedicated BADUSB_EXECUTE action.
             // But if someone uses raw CLI, we still want user confirmation (HIGH via else branch).
             // So badusb is intentionally NOT in the MEDIUM list.
+            // Note: `rfid write` is intentionally NOT in the MEDIUM list — it falls to HIGH
+            // via the else branch, matching the typed RFID_WRITE action.
         )
     }
 }

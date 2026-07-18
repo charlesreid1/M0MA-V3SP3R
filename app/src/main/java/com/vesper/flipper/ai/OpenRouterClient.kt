@@ -1167,6 +1167,30 @@ class OpenRouterClient @Inject constructor(
             CommandAction.LED_CONTROL -> emptyList()  // defaults to 0,0,0
             CommandAction.VIBRO_CONTROL -> emptyList()  // defaults to on
             CommandAction.REQUEST_PHOTO -> emptyList()  // prompt is optional (has default)
+            CommandAction.SUBGHZ_RECEIVE -> emptyList()  // frequency has default
+            CommandAction.SUBGHZ_DECODE_RAW -> listOfNotNull(if (args.path.isNullOrBlank()) "path" else null)
+            CommandAction.IR_RECEIVE -> emptyList()
+            CommandAction.IR_TRANSMIT_RAW -> listOfNotNull(if (args.content.isNullOrBlank()) "content" else null)
+            CommandAction.NFC_DETECT -> emptyList()
+            CommandAction.NFC_FIELD -> emptyList()
+            CommandAction.RFID_READ -> emptyList()
+            CommandAction.RFID_WRITE -> listOfNotNull(
+                if (args.keyType.isNullOrBlank()) "key_type" else null,
+                if (args.keyData.isNullOrBlank()) "key_data" else null
+            )
+            CommandAction.GPIO_READ -> listOfNotNull(if (args.pin.isNullOrBlank()) "pin" else null)
+            CommandAction.GPIO_SET -> listOfNotNull(
+                if (args.pin.isNullOrBlank()) "pin" else null,
+                if (args.value == null) "value" else null
+            )
+            CommandAction.GPIO_MODE -> listOfNotNull(
+                if (args.pin.isNullOrBlank()) "pin" else null,
+                if (args.mode == null) "mode" else null
+            )
+            CommandAction.APPS_LIST -> emptyList()
+            CommandAction.MUSIC_PLAY -> listOfNotNull(if (args.content.isNullOrBlank()) "content" else null)
+            CommandAction.MUSIC_GET_FORMAT -> emptyList()
+            CommandAction.GET_SYSTEM_INFO -> emptyList()
         }
     }
 
@@ -1232,6 +1256,36 @@ class OpenRouterClient @Inject constructor(
                 """{"action":"github_search","args":{"command":"Samsung TV remote extension:ir","search_scope":"code"}}"""
             CommandAction.REQUEST_PHOTO ->
                 """{"action":"request_photo","args":{"prompt":"Describe what you see"}}"""
+            CommandAction.SUBGHZ_RECEIVE ->
+                """{"action":"subghz_receive","args":{"frequency":433920000}}"""
+            CommandAction.SUBGHZ_DECODE_RAW ->
+                """{"action":"subghz_decode_raw","args":{"path":"/ext/subghz/capture.sub"}}"""
+            CommandAction.IR_RECEIVE ->
+                """{"action":"ir_receive","args":{}}"""
+            CommandAction.IR_TRANSMIT_RAW ->
+                """{"action":"ir_transmit_raw","args":{"frequency":38000,"duty_cycle":0.33,"content":"1200 600 1200 600 ..."}}"""
+            CommandAction.NFC_DETECT ->
+                """{"action":"nfc_detect","args":{}}"""
+            CommandAction.NFC_FIELD ->
+                """{"action":"nfc_field","args":{}}"""
+            CommandAction.RFID_READ ->
+                """{"action":"rfid_read","args":{}}"""
+            CommandAction.RFID_WRITE ->
+                """{"action":"rfid_write","args":{"key_type":"EM4100","key_data":"aabbccddee"}}"""
+            CommandAction.GPIO_READ ->
+                """{"action":"gpio_read","args":{"pin":"PA7"}}"""
+            CommandAction.GPIO_SET ->
+                """{"action":"gpio_set","args":{"pin":"PC3","value":1}}"""
+            CommandAction.GPIO_MODE ->
+                """{"action":"gpio_mode","args":{"pin":"PC3","mode":1}}"""
+            CommandAction.APPS_LIST ->
+                """{"action":"apps_list","args":{}}"""
+            CommandAction.MUSIC_PLAY ->
+                """{"action":"music_play","args":{"content":"Filetype: Flipper Music Format\nVersion: 0\nBPM: 120\nDuration: 4\nOctave: 4\nNotes: 4C, 4D, 4E, 4C\n"}}"""
+            CommandAction.MUSIC_GET_FORMAT ->
+                """{"action":"music_get_format","args":{}}"""
+            CommandAction.GET_SYSTEM_INFO ->
+                """{"action":"get_system_info","args":{}}"""
         }
     }
 

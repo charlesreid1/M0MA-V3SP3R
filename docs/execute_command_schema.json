@@ -27,11 +27,26 @@
         "run_runbook",
         "launch_app",
         "subghz_transmit",
+        "subghz_receive",
+        "subghz_decode_raw",
         "ir_transmit",
+        "ir_transmit_raw",
+        "ir_receive",
         "nfc_emulate",
+        "nfc_detect",
+        "nfc_field",
         "rfid_emulate",
+        "rfid_read",
+        "rfid_write",
         "ibutton_emulate",
         "badusb_execute",
+        "gpio_read",
+        "gpio_set",
+        "gpio_mode",
+        "apps_list",
+        "music_play",
+        "music_get_format",
+        "get_system_info",
         "ble_spam",
         "led_control",
         "vibro_control",
@@ -164,6 +179,34 @@
         "photo_prompt": {
           "type": "string",
           "description": "Prompt describing what to capture (for request_photo action)"
+        },
+        "pin": {
+          "type": "string",
+          "description": "GPIO pin identifier (for gpio_read/gpio_set/gpio_mode; e.g. PA7, PC3)"
+        },
+        "value": {
+          "type": "integer",
+          "description": "GPIO pin output value 0 or 1 (for gpio_set)"
+        },
+        "mode": {
+          "type": "integer",
+          "description": "GPIO pin mode: 0 = input, 1 = output (for gpio_mode)"
+        },
+        "duty_cycle": {
+          "type": "number",
+          "description": "IR carrier duty cycle 0.0–1.0 (for ir_transmit_raw; defaults to 0.33)"
+        },
+        "key_type": {
+          "type": "string",
+          "description": "RFID key type, e.g. EM4100 or HIDProx (for rfid_write)"
+        },
+        "key_data": {
+          "type": "string",
+          "description": "RFID key data payload (for rfid_write)"
+        },
+        "duration": {
+          "type": "number",
+          "description": "Listen duration in seconds for passive capture actions (subghz_receive, ir_receive, nfc_detect, nfc_field, rfid_read)"
         }
       }
     },
@@ -351,6 +394,48 @@
       "args": {},
       "justification": "User wants to check device status",
       "expected_effect": "Return battery level, firmware version, and hardware info"
+    },
+    {
+      "action": "subghz_receive",
+      "args": {
+        "frequency": 433920000
+      },
+      "justification": "User wants to capture ambient Sub-GHz at the default ISM frequency",
+      "expected_effect": "Return captured signal data from Sub-GHz RX"
+    },
+    {
+      "action": "gpio_read",
+      "args": {
+        "pin": "PA7"
+      },
+      "justification": "User wants to sample an external sensor wired to PA7",
+      "expected_effect": "Return the current logic level of pin PA7"
+    },
+    {
+      "action": "gpio_set",
+      "args": {
+        "pin": "PC3",
+        "value": 1
+      },
+      "justification": "User wants to drive PC3 high to enable an external LED",
+      "expected_effect": "Set PC3 output to 1"
+    },
+    {
+      "action": "rfid_write",
+      "args": {
+        "key_type": "EM4100",
+        "key_data": "aabbccddee"
+      },
+      "justification": "User wants to program a blank EM4100 tag with a captured code",
+      "expected_effect": "Write the given data to the RFID tag held near the Flipper"
+    },
+    {
+      "action": "music_play",
+      "args": {
+        "content": "Filetype: Flipper Music Format\nVersion: 0\nBPM: 120\nDuration: 4\nOctave: 4\nNotes: 4C, 4D, 4E, 4C\n"
+      },
+      "justification": "User wants the Flipper to play a short melody",
+      "expected_effect": "Write the FMF song to /ext/music_player/ and launch Music Player"
     }
   ]
 }
