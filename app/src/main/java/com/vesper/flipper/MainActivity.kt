@@ -102,9 +102,11 @@ sealed class Screen(
     object Chat : Screen("chat", "Chat", Icons.Filled.Chat, Icons.Outlined.Chat)
     object Oracle : Screen("oracle", "Oracle", Icons.Filled.Visibility, Icons.Outlined.Visibility)
     object Arsenal : Screen("arsenal", "Arsenal", Icons.Filled.Sensors, Icons.Outlined.Sensors)
+    object Labs : Screen("labs", "Labs", Icons.Filled.Science, Icons.Outlined.Science)
     object Alchemy : Screen("alchemy", "Alchemy", Icons.Filled.AutoAwesome, Icons.Outlined.AutoAwesome)
     object OpsCenter : Screen("ops_center", "Ops", Icons.Filled.BluetoothSearching, Icons.Outlined.BluetoothSearching)
     object PayloadLab : Screen("payload_lab", "Payloads", Icons.Filled.Code, Icons.Outlined.Code)
+    object Campaigns : Screen("campaigns", "Campaigns", Icons.Filled.Terminal, Icons.Outlined.Terminal)
     object FapHub : Screen("faphub", "FapHub", Icons.Filled.Apps, Icons.Outlined.Apps)
     object Files : Screen("files", "Files", Icons.Filled.Folder, Icons.Outlined.Folder)
     object Audit : Screen("audit", "Audit", Icons.Filled.History, Icons.Outlined.History)
@@ -114,8 +116,7 @@ sealed class Screen(
 
 val screens = listOf(
     Screen.Chat,
-    Screen.Alchemy,
-    Screen.PayloadLab,
+    Screen.Labs,
     Screen.Device,
     Screen.Settings
 )
@@ -142,7 +143,10 @@ fun VesperApp() {
                     // Map sub-screens to their parent bottom-nav tab
                     val subScreenParents = mapOf(
                         Screen.Audit.route to Screen.Chat.route,
-                        Screen.Files.route to Screen.Device.route
+                        Screen.Files.route to Screen.Device.route,
+                        Screen.Alchemy.route to Screen.Labs.route,
+                        Screen.PayloadLab.route to Screen.Labs.route,
+                        Screen.Campaigns.route to Screen.Labs.route
                     )
                     val currentRoute = currentDestination?.route
                     val effectiveRoute = subScreenParents[currentRoute] ?: currentRoute
@@ -202,6 +206,17 @@ fun VesperApp() {
                             navController.navigate(Screen.Audit.route)
                         }
                     )
+                }
+                composable(Screen.Labs.route) {
+                    LabsHubScreen(
+                        onOpenAlchemy = { navController.navigate(Screen.Alchemy.route) },
+                        onOpenPayloadLab = { navController.navigate(Screen.PayloadLab.route) },
+                        onOpenCampaigns = { navController.navigate(Screen.Campaigns.route) },
+                    )
+                }
+                composable(Screen.Campaigns.route) {
+                    // Placeholder — the real CampaignsScreen ships in the next commit on this branch.
+                    androidx.compose.material3.Text("Campaigns (coming next commit)")
                 }
                 composable(Screen.Alchemy.route) {
                     AlchemyLabScreen()
