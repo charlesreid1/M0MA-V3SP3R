@@ -121,14 +121,24 @@ fun NewCampaignScreen(
                 onSelect = { mode = CampaignMode.AUTONOMOUS_TRUSTED },
             )
             Text(
-                "Max iterations per phase: ${maxIterations.toInt()}",
+                "Max iterations per phase",
                 style = MaterialTheme.typography.labelLarge,
+            )
+            Text(
+                "How many LLM rounds each phase (recon, research, enumerate, exploit, report) runs before advancing. Higher = deeper recon but more API cost.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Slider(
                 value = maxIterations,
                 onValueChange = { maxIterations = it },
                 valueRange = 1f..50f,
                 steps = 48,
+            )
+            Text(
+                "${maxIterations.toInt()}",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary,
             )
             Button(
                 onClick = {

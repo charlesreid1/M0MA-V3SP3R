@@ -20,7 +20,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Code
-import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -31,8 +30,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,24 +37,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
-import com.vesper.flipper.ui.viewmodel.LabsHubViewModel
-
 /**
- * Consolidated hub for Vesper's lab-style features. Landing screen for the "Labs"
- * bottom-nav slot; individual labs are reached through card taps. Making this a
- * hub instead of one bottom-nav slot per lab is what lets us fit Campaigns
- * without dropping any of the existing features.
+ * Consolidated hub for Vesper's lab-style features — Alchemy Lab and Payload Lab.
+ * Landing screen for the "Labs" bottom-nav slot. Campaigns has its own dedicated
+ * bottom-nav tab.
  */
 @Composable
 fun LabsHubScreen(
     onOpenAlchemy: () -> Unit,
     onOpenPayloadLab: () -> Unit,
-    onOpenCampaigns: () -> Unit,
-    viewModel: LabsHubViewModel = hiltViewModel(),
 ) {
-    val ralphEnabled by viewModel.ralphEnabled.collectAsState(initial = false)
-
     val entries = buildList {
         add(
             LabEntry(
@@ -75,19 +64,6 @@ fun LabsHubScreen(
                 icon = Icons.Filled.Code,
                 onOpen = onOpenPayloadLab,
                 enabled = true,
-            )
-        )
-        add(
-            LabEntry(
-                title = "Campaigns",
-                description = if (ralphEnabled) {
-                    "Autonomous multi-phase engagements. Ralph mode."
-                } else {
-                    "Autonomous multi-phase engagements. Enable Ralph mode in Settings first."
-                },
-                icon = Icons.Filled.Terminal,
-                onOpen = onOpenCampaigns,
-                enabled = ralphEnabled,
             )
         )
     }

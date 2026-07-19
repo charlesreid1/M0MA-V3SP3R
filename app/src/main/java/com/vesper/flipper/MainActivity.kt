@@ -106,9 +106,9 @@ sealed class Screen(
     object Alchemy : Screen("alchemy", "Alchemy", Icons.Filled.AutoAwesome, Icons.Outlined.AutoAwesome)
     object OpsCenter : Screen("ops_center", "Ops", Icons.Filled.BluetoothSearching, Icons.Outlined.BluetoothSearching)
     object PayloadLab : Screen("payload_lab", "Payloads", Icons.Filled.Code, Icons.Outlined.Code)
-    object Campaigns : Screen("campaigns", "Campaigns", Icons.Filled.Terminal, Icons.Outlined.Terminal)
+    object Campaigns : Screen("campaigns", "Campaigns", Icons.Filled.Flag, Icons.Outlined.Flag)
     object NewCampaign : Screen("campaigns/new", "New Campaign", Icons.Filled.Add, Icons.Outlined.Add)
-    object CampaignDetail : Screen("campaigns/{campaignId}", "Campaign", Icons.Filled.Terminal, Icons.Outlined.Terminal)
+    object CampaignDetail : Screen("campaigns/{campaignId}", "Campaign", Icons.Filled.Flag, Icons.Outlined.Flag)
     object ApprovalInbox : Screen("approval_inbox", "Approvals", Icons.Filled.NotificationsActive, Icons.Outlined.NotificationsActive)
     object FapHub : Screen("faphub", "FapHub", Icons.Filled.Apps, Icons.Outlined.Apps)
     object Files : Screen("files", "Files", Icons.Filled.Folder, Icons.Outlined.Folder)
@@ -120,6 +120,7 @@ sealed class Screen(
 val screens = listOf(
     Screen.Chat,
     Screen.Labs,
+    Screen.Campaigns,
     Screen.Device,
     Screen.Settings
 )
@@ -160,10 +161,9 @@ fun VesperApp() {
                         Screen.Files.route to Screen.Device.route,
                         Screen.Alchemy.route to Screen.Labs.route,
                         Screen.PayloadLab.route to Screen.Labs.route,
-                        Screen.Campaigns.route to Screen.Labs.route,
-                        Screen.NewCampaign.route to Screen.Labs.route,
-                        Screen.CampaignDetail.route to Screen.Labs.route,
-                        Screen.ApprovalInbox.route to Screen.Labs.route
+                        Screen.NewCampaign.route to Screen.Campaigns.route,
+                        Screen.CampaignDetail.route to Screen.Campaigns.route,
+                        Screen.ApprovalInbox.route to Screen.Campaigns.route
                     )
                     val currentRoute = currentDestination?.route
                     val effectiveRoute = subScreenParents[currentRoute] ?: currentRoute
@@ -228,7 +228,6 @@ fun VesperApp() {
                     LabsHubScreen(
                         onOpenAlchemy = { navController.navigate(Screen.Alchemy.route) },
                         onOpenPayloadLab = { navController.navigate(Screen.PayloadLab.route) },
-                        onOpenCampaigns = { navController.navigate(Screen.Campaigns.route) },
                     )
                 }
                 composable(Screen.Campaigns.route) {
