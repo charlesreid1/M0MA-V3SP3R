@@ -40,6 +40,41 @@ class RiskAssessor @Inject constructor(
             )
         }
 
+        // Scope check (Ralph campaigns only) — runs before risk classification so an
+        // out-of-scope target is BLOCKED regardless of the action's normal risk tier.
+        // Chat sessions leave command.scope null and skip this whole path.
+        command.scope?.let { scope ->
+            val targets = extractScopeTargets(command)
+            val outOfScopeHit = targets.firstOrNull { t ->
+                scope.outOfScope.any { it.equals(t, ignoreCase = true) }
+            }
+            if (outOfScopeHit != null) {
+                return RiskAssessment(
+                    level = RiskLevel.BLOCKED,
+                    reason = "Target '$outOfScopeHit' is out of scope for campaign ${scope.campaignId.take(8)}",
+                    affectedPaths = paths,
+                    requiresDiff = false,
+                    requiresConfirmation = false,
+                    blockedReason = "Out of scope"
+                )
+            }
+            if (scope.inScope.isNotEmpty() && targets.isNotEmpty()) {
+                val notInScope = targets.firstOrNull { t ->
+                    scope.inScope.none { it.contains(t, ignoreCase = true) || t.contains(it, ignoreCase = true) }
+                }
+                if (notInScope != null) {
+                    return RiskAssessment(
+                        level = RiskLevel.BLOCKED,
+                        reason = "Target '$notInScope' is not in campaign ${scope.campaignId.take(8)} scope",
+                        affectedPaths = paths,
+                        requiresDiff = false,
+                        requiresConfirmation = false,
+                        blockedReason = "Out of scope"
+                    )
+                }
+            }
+        }
+
         // Assess based on action type
         return when (command.action) {
             // LOW risk: read-only operations
@@ -508,6 +543,28 @@ class RiskAssessor @Inject constructor(
                 .forEach { paths.add(it) }
         }
         return paths
+    }
+
+    /**
+     * Extract the target identifiers this command is aimed at, for scope
+     * enforcement. Returns whatever the command args describe as a target —
+     * BLE MAC, vulnerability target string, frequency, downloaded URL host, etc.
+     *
+     * Returned strings are compared against [Scope.inScope]/[Scope.outOfScope]
+     * by the scope-check block in [assess]. Filesystem paths are intentionally
+     * NOT included here — path protection is a separate concern already handled
+     * by [ProtectedPaths].
+     */
+    private fun extractScopeTargets(command: ExecuteCommand): List<String> {
+        val out = mutableListOf<String>()
+        command.args.address?.trim()?.takeIf { it.isNotEmpty() }?.let(out::add)
+        command.args.target?.trim()?.takeIf { it.isNotEmpty() }?.let(out::add)
+        command.args.frequency?.let { out.add(it.toString()) }
+        // download_url host — for DOWNLOAD_RESOURCE, GITHUB_SEARCH etc. Best-effort.
+        command.args.downloadUrl?.let { url ->
+            runCatching { java.net.URI(url).host }.getOrNull()?.takeIf { it.isNotBlank() }?.let(out::add)
+        }
+        return out
     }
 
     private fun isUnlockedInSettings(path: String): Boolean {

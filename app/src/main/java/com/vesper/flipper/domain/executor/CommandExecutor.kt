@@ -221,11 +221,17 @@ class CommandExecutor @Inject constructor(
             null
         }
 
+        val expiryClass = if (command.scope != null) {
+            com.vesper.flipper.domain.model.ExpiryClass.AUTONOMOUS
+        } else {
+            com.vesper.flipper.domain.model.ExpiryClass.INTERACTIVE
+        }
         val approval = PendingApproval(
             command = command,
             riskAssessment = riskAssessment,
             diff = diff,
-            traceId = traceId
+            traceId = traceId,
+            expiryClass = expiryClass,
         )
 
         pendingApprovals[approval.id] = approval

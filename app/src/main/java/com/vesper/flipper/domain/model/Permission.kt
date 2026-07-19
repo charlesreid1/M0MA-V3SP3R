@@ -93,6 +93,17 @@ data class PermissionRequest(
 )
 
 /**
+ * Which timeout window this approval uses. Interactive (chat) approvals expire
+ * fast — 5 minutes — because a chat session is right there in front of the user.
+ * Autonomous (Ralph campaign) approvals get 24 hours so a phone that was locked
+ * overnight can still surface the pending action in the morning.
+ */
+enum class ExpiryClass(val durationMs: Long) {
+    INTERACTIVE(5L * 60L * 1000L),
+    AUTONOMOUS(24L * 60L * 60L * 1000L),
+}
+
+/**
  * Pending action waiting for user approval
  */
 data class PendingApproval(
@@ -101,6 +112,7 @@ data class PendingApproval(
     val riskAssessment: RiskAssessment,
     val diff: FileDiff? = null,
     val traceId: String? = null,
+    val expiryClass: ExpiryClass = ExpiryClass.INTERACTIVE,
     val timestamp: Long = System.currentTimeMillis(),
-    val expiresAt: Long = System.currentTimeMillis() + 5 * 60 * 1000 // 5 min expiry
+    val expiresAt: Long = System.currentTimeMillis() + expiryClass.durationMs
 )
