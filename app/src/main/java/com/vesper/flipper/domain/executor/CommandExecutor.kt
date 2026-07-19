@@ -56,6 +56,19 @@ class CommandExecutor @Inject constructor(
     val currentApproval: StateFlow<PendingApproval?> = _currentApproval.asStateFlow()
 
     /**
+     * All currently-pending approvals, keyed by approval id. Chat's flow uses at
+     * most one approval at a time via [currentApproval]; Ralph campaigns can have
+     * multiple in flight across parallel campaigns and days-long lifetimes, so
+     * the Approval Inbox screen observes this map instead.
+     */
+    private val _allPendingApprovals = MutableStateFlow<Map<String, PendingApproval>>(emptyMap())
+    val allPendingApprovals: StateFlow<Map<String, PendingApproval>> = _allPendingApprovals.asStateFlow()
+
+    private fun publishPendingApprovals() {
+        _allPendingApprovals.value = pendingApprovals.toMap()
+    }
+
+    /**
      * Execute a command from the AI agent.
      * Returns immediately for safe operations or requests approval for risky ones.
      */
@@ -217,6 +230,7 @@ class CommandExecutor @Inject constructor(
 
         pendingApprovals[approval.id] = approval
         _currentApproval.value = approval
+        publishPendingApprovals()
 
         auditService.log(
             AuditEntry(
@@ -264,6 +278,7 @@ class CommandExecutor @Inject constructor(
                     )
                 )
             }
+        publishPendingApprovals()
 
         if (_currentApproval.value?.id == approvalId) {
             _currentApproval.value = null
@@ -343,6 +358,7 @@ class CommandExecutor @Inject constructor(
     suspend fun reject(approvalId: String, sessionId: String): CommandResult {
         clearExpiredApprovals()
         val approval = pendingApprovals.remove(approvalId)
+        publishPendingApprovals()
 
         if (_currentApproval.value?.id == approvalId) {
             _currentApproval.value = null
@@ -1364,12 +1380,13 @@ class CommandExecutor @Inject constructor(
 
     fun clearExpiredApprovals() {
         val now = System.currentTimeMillis()
-        pendingApprovals.entries.removeIf { it.value.expiresAt < now }
+        val removed = pendingApprovals.entries.removeIf { it.value.expiresAt < now }
         _currentApproval.value?.let {
             if (it.expiresAt < now) {
                 _currentApproval.value = null
             }
         }
+        if (removed) publishPendingApprovals()
     }
 
     private data class DownloadedPayload(

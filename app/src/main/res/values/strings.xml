@@ -54,6 +54,8 @@
     <!-- Notifications -->
     <string name="notification_channel_ble">Flipper Connection</string>
     <string name="notification_channel_ble_desc">Shows Flipper connection status</string>
+    <string name="notification_channel_campaign_approval">Campaign Approvals</string>
+    <string name="notification_channel_campaign_approval_desc">Alerts you when an autonomous Ralph campaign needs your approval for a HIGH-risk action or the exploit gate.</string>
     <string name="notification_connected">Connected to Flipper</string>
 
     <!-- Errors -->

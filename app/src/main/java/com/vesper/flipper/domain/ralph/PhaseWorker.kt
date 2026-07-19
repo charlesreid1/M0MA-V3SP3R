@@ -286,6 +286,9 @@ abstract class PhaseWorker(
             )
         }
         campaignDao.upsertState(updated)
+        if (outcome is PhaseOutcome.NeedsApproval) {
+            orchestrator.notifyMidPhaseAwaitingApproval(updated)
+        }
         Log.i(TAG, "Phase ${phaseId.name} outcome: $outcome (campaign ${campaignId.take(8)})")
     }
 

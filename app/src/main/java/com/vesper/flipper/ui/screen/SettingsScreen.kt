@@ -578,6 +578,10 @@ fun SettingsScreen(
                 }
             }
 
+            item {
+                RalphSettingsSection()
+            }
+
             // About Section
             item {
                 SettingsSection(title = "About") {
@@ -591,6 +595,44 @@ fun SettingsScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun RalphSettingsSection(
+    viewModel: com.vesper.flipper.ui.viewmodel.RalphSettingsViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
+) {
+    val ralphEnabled by viewModel.ralphEnabled.collectAsState(initial = false)
+    SettingsSection(title = "Ralph Autonomous Campaigns") {
+        Text(
+            text = "Multi-phase engagements that run unattended. Every HIGH-risk action still pauses for your approval — Ralph never escalates trust.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        SettingsSwitch(
+            title = "Enable Ralph mode",
+            subtitle = "Show Campaigns in the Labs hub and accept new campaign starts.",
+            checked = ralphEnabled,
+            onCheckedChange = { viewModel.setRalphEnabled(it) },
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Button(
+            onClick = { viewModel.killAllCampaigns() },
+            enabled = ralphEnabled,
+            colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.error,
+            ),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("Stop all campaigns")
+        }
+        Text(
+            "Cancels every scheduled campaign job and pauses any running campaign. Findings and audit logs are preserved.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp),
+        )
     }
 }
 

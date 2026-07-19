@@ -13,6 +13,7 @@ import com.vesper.flipper.data.database.CampaignStateEntity
 import com.vesper.flipper.domain.model.CampaignPhase
 import com.vesper.flipper.domain.model.CampaignRequest
 import com.vesper.flipper.domain.model.CampaignStatus
+import com.vesper.flipper.notifications.CampaignNotifications
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
@@ -39,6 +40,7 @@ class RalphOrchestrator @Inject constructor(
     @ApplicationContext private val context: Context,
     private val campaignDao: CampaignDao,
     private val settingsStore: SettingsStore,
+    private val notifications: CampaignNotifications,
 ) {
 
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
@@ -119,7 +121,7 @@ class RalphOrchestrator @Inject constructor(
         }
 
         if (next == CampaignPhase.EXPLOIT) {
-            // Exploit gate — hold until a human resumes (C.2 UI).
+            // Exploit gate — hold until a human resumes via the Approval Inbox / Campaign detail.
             campaignDao.upsertState(
                 state.copy(
                     status = CampaignStatus.AWAITING_APPROVAL.name,
@@ -127,6 +129,11 @@ class RalphOrchestrator @Inject constructor(
                     pauseReason = "exploit gate (human required for HIGH-risk actions)",
                     updatedAt = System.currentTimeMillis(),
                 )
+            )
+            notifications.notifyAwaitingApproval(
+                campaignId = state.id,
+                campaignName = state.name,
+                phase = CampaignPhase.EXPLOIT.name,
             )
             Log.i(
                 TAG,
@@ -188,7 +195,30 @@ class RalphOrchestrator @Inject constructor(
                 updatedAt = System.currentTimeMillis(),
             )
         )
+        notifications.cancel(campaignId)
         enqueuePhase(campaignId, phase)
+    }
+
+    /**
+     * Human-initiated resume of the EXPLOIT phase. Requires the campaign to be
+     * sitting at AWAITING_APPROVAL with currentPhase = EXPLOIT — that's the
+     * exploit gate state the orchestrator holds at when [advancePhase] sees
+     * ENUMERATE complete. Explicitly named separately from [resumeCampaign] so
+     * the UI must intentionally choose to release the gate.
+     */
+    suspend fun resumeExploitPhase(campaignId: String) {
+        if (!settingsStore.ralphEnabled.first()) return
+        val state = campaignDao.getState(campaignId) ?: return
+        if (state.currentPhase != CampaignPhase.EXPLOIT.name) return
+        if (state.status != CampaignStatus.AWAITING_APPROVAL.name) return
+        campaignDao.upsertState(
+            state.copy(
+                status = CampaignStatus.RUNNING.name,
+                pauseReason = null,
+                updatedAt = System.currentTimeMillis(),
+            )
+        )
+        enqueuePhase(campaignId, CampaignPhase.EXPLOIT)
     }
 
     /**
@@ -198,12 +228,27 @@ class RalphOrchestrator @Inject constructor(
     suspend fun stopCampaign(campaignId: String, reason: String = "user stopped") {
         val state = campaignDao.getState(campaignId) ?: return
         WorkManager.getInstance(context).cancelAllWorkByTag(campaignTag(campaignId))
+        notifications.cancel(campaignId)
         campaignDao.upsertState(
             state.copy(
                 status = CampaignStatus.FAILED.name,
                 failureReason = reason,
                 updatedAt = System.currentTimeMillis(),
             )
+        )
+    }
+
+    /**
+     * Fire the "awaiting approval" notification from a phase worker that hit a
+     * mid-phase HIGH-risk action. Distinct from the exploit-gate notification
+     * because the phase in [state] is whatever phase produced the request, not
+     * necessarily EXPLOIT.
+     */
+    fun notifyMidPhaseAwaitingApproval(state: CampaignStateEntity) {
+        notifications.notifyAwaitingApproval(
+            campaignId = state.id,
+            campaignName = state.name,
+            phase = state.currentPhase,
         )
     }
 
@@ -221,6 +266,7 @@ class RalphOrchestrator @Inject constructor(
                     updatedAt = now,
                 )
             )
+            notifications.cancel(state.id)
         }
     }
 
@@ -242,11 +288,8 @@ class RalphOrchestrator @Inject constructor(
             CampaignPhase.RECON -> OneTimeWorkRequestBuilder<ReconWorker>()
             CampaignPhase.RESEARCH -> OneTimeWorkRequestBuilder<ResearchWorker>()
             CampaignPhase.ENUMERATE -> OneTimeWorkRequestBuilder<EnumerateWorker>()
+            CampaignPhase.EXPLOIT -> OneTimeWorkRequestBuilder<ExploitWorker>()
             CampaignPhase.REPORT -> OneTimeWorkRequestBuilder<ReportWorker>()
-            CampaignPhase.EXPLOIT -> {
-                Log.w(TAG, "enqueuePhase called for EXPLOIT — refusing; gate is human-only in C.1")
-                return
-            }
         }
             .setInputData(inputData)
             .setConstraints(constraints)
