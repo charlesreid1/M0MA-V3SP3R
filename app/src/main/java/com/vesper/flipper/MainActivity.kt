@@ -102,9 +102,14 @@ sealed class Screen(
     object Chat : Screen("chat", "Chat", Icons.Filled.Chat, Icons.Outlined.Chat)
     object Oracle : Screen("oracle", "Oracle", Icons.Filled.Visibility, Icons.Outlined.Visibility)
     object Arsenal : Screen("arsenal", "Arsenal", Icons.Filled.Sensors, Icons.Outlined.Sensors)
+    object Labs : Screen("labs", "Labs", Icons.Filled.Science, Icons.Outlined.Science)
     object Alchemy : Screen("alchemy", "Alchemy", Icons.Filled.AutoAwesome, Icons.Outlined.AutoAwesome)
     object OpsCenter : Screen("ops_center", "Ops", Icons.Filled.BluetoothSearching, Icons.Outlined.BluetoothSearching)
     object PayloadLab : Screen("payload_lab", "Payloads", Icons.Filled.Code, Icons.Outlined.Code)
+    object Campaigns : Screen("campaigns", "Campaigns", Icons.Filled.Terminal, Icons.Outlined.Terminal)
+    object NewCampaign : Screen("campaigns/new", "New Campaign", Icons.Filled.Add, Icons.Outlined.Add)
+    object CampaignDetail : Screen("campaigns/{campaignId}", "Campaign", Icons.Filled.Terminal, Icons.Outlined.Terminal)
+    object ApprovalInbox : Screen("approval_inbox", "Approvals", Icons.Filled.NotificationsActive, Icons.Outlined.NotificationsActive)
     object FapHub : Screen("faphub", "FapHub", Icons.Filled.Apps, Icons.Outlined.Apps)
     object Files : Screen("files", "Files", Icons.Filled.Folder, Icons.Outlined.Folder)
     object Audit : Screen("audit", "Audit", Icons.Filled.History, Icons.Outlined.History)
@@ -114,8 +119,7 @@ sealed class Screen(
 
 val screens = listOf(
     Screen.Chat,
-    Screen.Alchemy,
-    Screen.PayloadLab,
+    Screen.Labs,
     Screen.Device,
     Screen.Settings
 )
@@ -123,6 +127,17 @@ val screens = listOf(
 @Composable
 fun VesperApp() {
     val navController = rememberNavController()
+    val activity = androidx.compose.ui.platform.LocalContext.current as? android.app.Activity
+    // Notification tap → deep-link into the Approval Inbox. The notification carries
+    // vesper://approval-inbox?campaign=<id> so we can later scope the inbox to one
+    // campaign if we choose to; today we just land on the inbox and show everything.
+    androidx.compose.runtime.LaunchedEffect(activity?.intent?.dataString) {
+        val data = activity?.intent?.data ?: return@LaunchedEffect
+        if (data.scheme == "vesper" && data.host == "approval-inbox") {
+            navController.navigate(Screen.ApprovalInbox.route)
+            activity.intent = android.content.Intent()
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -142,7 +157,13 @@ fun VesperApp() {
                     // Map sub-screens to their parent bottom-nav tab
                     val subScreenParents = mapOf(
                         Screen.Audit.route to Screen.Chat.route,
-                        Screen.Files.route to Screen.Device.route
+                        Screen.Files.route to Screen.Device.route,
+                        Screen.Alchemy.route to Screen.Labs.route,
+                        Screen.PayloadLab.route to Screen.Labs.route,
+                        Screen.Campaigns.route to Screen.Labs.route,
+                        Screen.NewCampaign.route to Screen.Labs.route,
+                        Screen.CampaignDetail.route to Screen.Labs.route,
+                        Screen.ApprovalInbox.route to Screen.Labs.route
                     )
                     val currentRoute = currentDestination?.route
                     val effectiveRoute = subScreenParents[currentRoute] ?: currentRoute
@@ -202,6 +223,44 @@ fun VesperApp() {
                             navController.navigate(Screen.Audit.route)
                         }
                     )
+                }
+                composable(Screen.Labs.route) {
+                    LabsHubScreen(
+                        onOpenAlchemy = { navController.navigate(Screen.Alchemy.route) },
+                        onOpenPayloadLab = { navController.navigate(Screen.PayloadLab.route) },
+                        onOpenCampaigns = { navController.navigate(Screen.Campaigns.route) },
+                    )
+                }
+                composable(Screen.Campaigns.route) {
+                    CampaignsScreen(
+                        onNewCampaign = { navController.navigate(Screen.NewCampaign.route) },
+                        onOpenCampaign = { id ->
+                            navController.navigate("campaigns/$id")
+                        },
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+                composable(Screen.NewCampaign.route) {
+                    NewCampaignScreen(
+                        onBack = { navController.popBackStack() },
+                        onCreated = { id ->
+                            navController.popBackStack()
+                            navController.navigate("campaigns/$id")
+                        },
+                    )
+                }
+                composable(
+                    route = Screen.CampaignDetail.route,
+                    arguments = listOf(
+                        androidx.navigation.navArgument("campaignId") {
+                            type = androidx.navigation.NavType.StringType
+                        }
+                    ),
+                ) {
+                    CampaignDetailScreen(onBack = { navController.popBackStack() })
+                }
+                composable(Screen.ApprovalInbox.route) {
+                    ApprovalInboxScreen(onBack = { navController.popBackStack() })
                 }
                 composable(Screen.Alchemy.route) {
                     AlchemyLabScreen()

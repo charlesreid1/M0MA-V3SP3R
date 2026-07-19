@@ -3,6 +3,7 @@ package com.vesper.flipper.ai
 import android.util.Log
 import com.vesper.flipper.data.SettingsStore
 import com.vesper.flipper.domain.model.*
+import com.vesper.flipper.domain.service.SkillRegistry
 import com.vesper.flipper.security.InputValidator
 import com.vesper.flipper.security.RateLimiter
 import kotlinx.coroutines.Dispatchers
@@ -34,7 +35,8 @@ import javax.inject.Singleton
  */
 @Singleton
 class OpenRouterClient @Inject constructor(
-    private val settingsStore: SettingsStore
+    private val settingsStore: SettingsStore,
+    private val skillRegistry: SkillRegistry,
 ) {
 
     private val json = Json {
@@ -63,8 +65,15 @@ class OpenRouterClient @Inject constructor(
         const val BACKOFF_MULTIPLIER = 2.0
     }
 
-    // Use centralized prompt system for consistency and maintainability
-    private val baseSystemPrompt = VesperPrompts.SYSTEM_PROMPT
+    // Use centralized prompt system for consistency and maintainability.
+    // The skill catalog is enumerated at first read from bundled assets and substituted into
+    // the SYSTEM_PROMPT placeholder — new skills bundled in a future build appear automatically.
+    private val baseSystemPrompt: String by lazy {
+        val catalog = skillRegistry.list()
+            .sortedBy { it.id }
+            .joinToString("\n") { "  - `${it.id}` — ${it.description}" }
+        VesperPrompts.withSkillCatalog(catalog)
+    }
 
     /**
      * Send a chat completion request with tool calling.
@@ -1167,6 +1176,81 @@ class OpenRouterClient @Inject constructor(
             CommandAction.LED_CONTROL -> emptyList()  // defaults to 0,0,0
             CommandAction.VIBRO_CONTROL -> emptyList()  // defaults to on
             CommandAction.REQUEST_PHOTO -> emptyList()  // prompt is optional (has default)
+            CommandAction.SUBGHZ_RECEIVE -> emptyList()  // frequency has default
+            CommandAction.SUBGHZ_DECODE_RAW -> listOfNotNull(if (args.path.isNullOrBlank()) "path" else null)
+            CommandAction.IR_RECEIVE -> emptyList()
+            CommandAction.IR_TRANSMIT_RAW -> listOfNotNull(if (args.content.isNullOrBlank()) "content" else null)
+            CommandAction.NFC_DETECT -> emptyList()
+            CommandAction.NFC_FIELD -> emptyList()
+            CommandAction.RFID_READ -> emptyList()
+            CommandAction.RFID_WRITE -> listOfNotNull(
+                if (args.keyType.isNullOrBlank()) "key_type" else null,
+                if (args.keyData.isNullOrBlank()) "key_data" else null
+            )
+            CommandAction.GPIO_READ -> listOfNotNull(if (args.pin.isNullOrBlank()) "pin" else null)
+            CommandAction.GPIO_SET -> listOfNotNull(
+                if (args.pin.isNullOrBlank()) "pin" else null,
+                if (args.value == null) "value" else null
+            )
+            CommandAction.GPIO_MODE -> listOfNotNull(
+                if (args.pin.isNullOrBlank()) "pin" else null,
+                if (args.mode == null) "mode" else null
+            )
+            CommandAction.APPS_LIST -> emptyList()
+            CommandAction.MUSIC_PLAY -> listOfNotNull(if (args.content.isNullOrBlank()) "content" else null)
+            CommandAction.MUSIC_GET_FORMAT -> emptyList()
+            CommandAction.GET_SYSTEM_INFO -> emptyList()
+            CommandAction.BLE_SCAN_TARGETS -> emptyList()
+            CommandAction.BLE_ENUMERATE -> listOfNotNull(if (args.address.isNullOrBlank()) "address" else null)
+            CommandAction.BLE_READ_CHAR -> listOfNotNull(
+                if (args.address.isNullOrBlank()) "address" else null,
+                if (args.uuid.isNullOrBlank()) "uuid" else null
+            )
+            CommandAction.BLE_WRITE_CHAR -> listOfNotNull(
+                if (args.address.isNullOrBlank()) "address" else null,
+                if (args.uuid.isNullOrBlank()) "uuid" else null,
+                if (args.content.isNullOrBlank()) "content" else null
+            )
+            CommandAction.BLE_SUBSCRIBE -> listOfNotNull(
+                if (args.address.isNullOrBlank()) "address" else null,
+                if (args.uuid.isNullOrBlank()) "uuid" else null
+            )
+            CommandAction.VULN_SUBMIT -> listOfNotNull(
+                if (args.target.isNullOrBlank()) "target" else null,
+                if (args.vulnType.isNullOrBlank()) "vuln_type" else null,
+                if (args.description.isNullOrBlank()) "description" else null,
+                if (args.evidence.isNullOrBlank()) "evidence" else null,
+                if (args.severity.isNullOrBlank()) "severity" else null,
+                if (args.complexity == null) "complexity" else null
+            )
+            CommandAction.VULN_VALIDATE -> listOfNotNull(
+                if (args.vulnId.isNullOrBlank()) "vuln_id" else null,
+                if (args.reproduced == null) "reproduced" else null
+            )
+            CommandAction.VULN_LIST -> emptyList()
+            CommandAction.VULN_CLASSIFY -> listOfNotNull(
+                if (args.vulnType.isNullOrBlank()) "vuln_type" else null
+            )
+            CommandAction.AUDIT_QUERY -> emptyList()
+            CommandAction.BADUSB_GENERATE -> {
+                if (args.description.isNullOrBlank() && args.prompt.isNullOrBlank() && args.command.isNullOrBlank()) {
+                    listOf("description")
+                } else emptyList()
+            }
+            CommandAction.BADUSB_VALIDATE -> listOfNotNull(
+                if (args.content.isNullOrBlank()) "content" else null
+            )
+            CommandAction.BADUSB_WRITE -> listOfNotNull(
+                if (args.filename.isNullOrBlank()) "filename" else null,
+                if (args.content.isNullOrBlank()) "content" else null
+            )
+            CommandAction.BADUSB_DIFF -> listOfNotNull(
+                if (args.path.isNullOrBlank()) "path" else null,
+                if (args.proposedContent.isNullOrBlank() && args.content.isNullOrBlank()) "proposed_content" else null
+            )
+            CommandAction.LOAD_SKILL -> listOfNotNull(
+                if (args.command.isNullOrBlank()) "command" else null
+            )
         }
     }
 
@@ -1232,6 +1316,66 @@ class OpenRouterClient @Inject constructor(
                 """{"action":"github_search","args":{"command":"Samsung TV remote extension:ir","search_scope":"code"}}"""
             CommandAction.REQUEST_PHOTO ->
                 """{"action":"request_photo","args":{"prompt":"Describe what you see"}}"""
+            CommandAction.SUBGHZ_RECEIVE ->
+                """{"action":"subghz_receive","args":{"frequency":433920000}}"""
+            CommandAction.SUBGHZ_DECODE_RAW ->
+                """{"action":"subghz_decode_raw","args":{"path":"/ext/subghz/capture.sub"}}"""
+            CommandAction.IR_RECEIVE ->
+                """{"action":"ir_receive","args":{}}"""
+            CommandAction.IR_TRANSMIT_RAW ->
+                """{"action":"ir_transmit_raw","args":{"frequency":38000,"duty_cycle":0.33,"content":"1200 600 1200 600 ..."}}"""
+            CommandAction.NFC_DETECT ->
+                """{"action":"nfc_detect","args":{}}"""
+            CommandAction.NFC_FIELD ->
+                """{"action":"nfc_field","args":{}}"""
+            CommandAction.RFID_READ ->
+                """{"action":"rfid_read","args":{}}"""
+            CommandAction.RFID_WRITE ->
+                """{"action":"rfid_write","args":{"key_type":"EM4100","key_data":"aabbccddee"}}"""
+            CommandAction.GPIO_READ ->
+                """{"action":"gpio_read","args":{"pin":"PA7"}}"""
+            CommandAction.GPIO_SET ->
+                """{"action":"gpio_set","args":{"pin":"PC3","value":1}}"""
+            CommandAction.GPIO_MODE ->
+                """{"action":"gpio_mode","args":{"pin":"PC3","mode":1}}"""
+            CommandAction.APPS_LIST ->
+                """{"action":"apps_list","args":{}}"""
+            CommandAction.MUSIC_PLAY ->
+                """{"action":"music_play","args":{"content":"Filetype: Flipper Music Format\nVersion: 0\nBPM: 120\nDuration: 4\nOctave: 4\nNotes: 4C, 4D, 4E, 4C\n"}}"""
+            CommandAction.MUSIC_GET_FORMAT ->
+                """{"action":"music_get_format","args":{}}"""
+            CommandAction.GET_SYSTEM_INFO ->
+                """{"action":"get_system_info","args":{}}"""
+            CommandAction.BLE_SCAN_TARGETS ->
+                """{"action":"ble_scan_targets","args":{"duration":5,"command":"lock"}}"""
+            CommandAction.BLE_ENUMERATE ->
+                """{"action":"ble_enumerate","args":{"address":"AA:BB:CC:DD:EE:FF"}}"""
+            CommandAction.BLE_READ_CHAR ->
+                """{"action":"ble_read_char","args":{"address":"AA:BB:CC:DD:EE:FF","uuid":"00002a00-0000-1000-8000-00805f9b34fb"}}"""
+            CommandAction.BLE_WRITE_CHAR ->
+                """{"action":"ble_write_char","args":{"address":"AA:BB:CC:DD:EE:FF","uuid":"...","content":"01FF00","hex":true,"with_response":true}}"""
+            CommandAction.BLE_SUBSCRIBE ->
+                """{"action":"ble_subscribe","args":{"address":"AA:BB:CC:DD:EE:FF","uuid":"...","duration":5}}"""
+            CommandAction.VULN_SUBMIT ->
+                """{"action":"vuln_submit","args":{"target":"192.168.1.10","vuln_type":"default_creds","description":"SSH login as admin:admin","evidence":"<sshpass output>","severity":"critical","complexity":1}}"""
+            CommandAction.VULN_VALIDATE ->
+                """{"action":"vuln_validate","args":{"vuln_id":"a1b2c3d4","reproduced":true,"notes":"reproduced on second attempt"}}"""
+            CommandAction.VULN_LIST ->
+                """{"action":"vuln_list","args":{"severity":"critical"}}"""
+            CommandAction.VULN_CLASSIFY ->
+                """{"action":"vuln_classify","args":{"vuln_type":"default_creds"}}"""
+            CommandAction.AUDIT_QUERY ->
+                """{"action":"audit_query","args":{"limit":20,"risk_level":"HIGH"}}"""
+            CommandAction.BADUSB_GENERATE ->
+                """{"action":"badusb_generate","args":{"description":"open notepad and type Hello","platform":"windows"}}"""
+            CommandAction.BADUSB_VALIDATE ->
+                """{"action":"badusb_validate","args":{"content":"DELAY 500\nGUI r\nDELAY 200\nSTRING notepad\nENTER"}}"""
+            CommandAction.BADUSB_WRITE ->
+                """{"action":"badusb_write","args":{"filename":"demo.txt","content":"DELAY 500\nGUI r\n..."}}"""
+            CommandAction.BADUSB_DIFF ->
+                """{"action":"badusb_diff","args":{"path":"/ext/badusb/demo.txt","proposed_content":"DELAY 500\nGUI r\n..."}}"""
+            CommandAction.LOAD_SKILL ->
+                """{"action":"load_skill","args":{"command":"ble-exploitation"}}"""
         }
     }
 

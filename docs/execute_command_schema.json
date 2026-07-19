@@ -27,12 +27,42 @@
         "run_runbook",
         "launch_app",
         "subghz_transmit",
+        "subghz_receive",
+        "subghz_decode_raw",
         "ir_transmit",
+        "ir_transmit_raw",
+        "ir_receive",
         "nfc_emulate",
+        "nfc_detect",
+        "nfc_field",
         "rfid_emulate",
+        "rfid_read",
+        "rfid_write",
         "ibutton_emulate",
         "badusb_execute",
+        "badusb_generate",
+        "badusb_validate",
+        "badusb_write",
+        "badusb_diff",
+        "vuln_submit",
+        "vuln_validate",
+        "vuln_list",
+        "vuln_classify",
+        "audit_query",
+        "load_skill",
+        "gpio_read",
+        "gpio_set",
+        "gpio_mode",
+        "apps_list",
+        "music_play",
+        "music_get_format",
+        "get_system_info",
         "ble_spam",
+        "ble_scan_targets",
+        "ble_enumerate",
+        "ble_read_char",
+        "ble_write_char",
+        "ble_subscribe",
         "led_control",
         "vibro_control",
         "browse_repo",
@@ -48,7 +78,7 @@
       "properties": {
         "command": {
           "type": "string",
-          "description": "Free-form command string. For execute_cli: the CLI command. For search_faphub/github_search/search_resources: the query. For install_faphub_app: the app id or name. For forge_payload: fallback natural-language prompt. For launch_app: fallback app name. For run_runbook: fallback runbook id. For browse_repo: fallback repo id."
+          "description": "Free-form command string. For execute_cli: the CLI command. For search_faphub/github_search/search_resources: the query. For install_faphub_app: the app id or name. For forge_payload: fallback natural-language prompt. For launch_app: fallback app name. For run_runbook: fallback runbook id. For browse_repo: fallback repo id. For load_skill: the skill id."
         },
         "path": {
           "type": "string",
@@ -123,7 +153,7 @@
         },
         "address": {
           "type": "string",
-          "description": "Address/identifier for hardware transmit operations"
+          "description": "Address/identifier: hex address for SubGHz transmit; BLE MAC (AA:BB:CC:DD:EE:FF) for ble_enumerate/read_char/write_char/subscribe"
         },
         "signal_name": {
           "type": "string",
@@ -164,6 +194,129 @@
         "photo_prompt": {
           "type": "string",
           "description": "Prompt describing what to capture (for request_photo action)"
+        },
+        "pin": {
+          "type": "string",
+          "description": "GPIO pin identifier (for gpio_read/gpio_set/gpio_mode; e.g. PA7, PC3)"
+        },
+        "value": {
+          "type": "integer",
+          "description": "GPIO pin output value 0 or 1 (for gpio_set)"
+        },
+        "mode": {
+          "type": "integer",
+          "description": "GPIO pin mode: 0 = input, 1 = output (for gpio_mode)"
+        },
+        "duty_cycle": {
+          "type": "number",
+          "description": "IR carrier duty cycle 0.0–1.0 (for ir_transmit_raw; defaults to 0.33)"
+        },
+        "key_type": {
+          "type": "string",
+          "description": "RFID key type, e.g. EM4100 or HIDProx (for rfid_write)"
+        },
+        "key_data": {
+          "type": "string",
+          "description": "RFID key data payload (for rfid_write)"
+        },
+        "duration": {
+          "type": "number",
+          "description": "Listen duration in seconds for passive capture actions (subghz_receive, ir_receive, nfc_detect, nfc_field, rfid_read); connection timeout for ble_enumerate/ble_read_char; listen window for ble_subscribe"
+        },
+        "uuid": {
+          "type": "string",
+          "description": "GATT characteristic UUID for BLE recon (128-bit like 00002a00-… or 4-hex-digit short form)"
+        },
+        "hex": {
+          "type": "boolean",
+          "description": "For ble_write_char: true if content is hex-encoded bytes (default), false for UTF-8 text"
+        },
+        "with_response": {
+          "type": "boolean",
+          "description": "For ble_write_char: true = write-with-response (default), false = write-without-response"
+        },
+        "target": {
+          "type": "string",
+          "description": "Target identifier (IP, MAC, hostname) — required by vuln_submit; substring filter for vuln_list"
+        },
+        "vuln_type": {
+          "type": "string",
+          "description": "Vulnerability type keyword (e.g. default_creds, writable_ble, sqli). Required by vuln_submit and vuln_classify"
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description — required by vuln_submit and badusb_generate"
+        },
+        "evidence": {
+          "type": "string",
+          "description": "Raw supporting evidence (tool output, response body) — required by vuln_submit"
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "critical",
+            "high",
+            "medium",
+            "low"
+          ],
+          "description": "Vulnerability severity — required by vuln_submit; optional filter for vuln_list"
+        },
+        "complexity": {
+          "type": "integer",
+          "description": "Exploitation complexity 1–10 (1 = trivial, 10 = expert). Required by vuln_submit"
+        },
+        "vuln_id": {
+          "type": "string",
+          "description": "Vulnerability finding UUID prefix returned by vuln_submit. Required by vuln_validate; optional for vuln_classify (reclassify existing finding)"
+        },
+        "reproduced": {
+          "type": "boolean",
+          "description": "Whether the vulnerability was reproduced during validation. Required by vuln_validate"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Free-form validation notes appended to the finding (for vuln_validate)"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "submitted",
+            "confirmed",
+            "rejected",
+            "false_positive"
+          ],
+          "description": "Finding status filter for vuln_list"
+        },
+        "limit": {
+          "type": "integer",
+          "description": "Row limit for audit_query (default 20)"
+        },
+        "risk_level": {
+          "type": "string",
+          "enum": [
+            "LOW",
+            "MEDIUM",
+            "HIGH",
+            "BLOCKED"
+          ],
+          "description": "Risk-level filter for audit_query"
+        },
+        "platform": {
+          "type": "string",
+          "enum": [
+            "windows",
+            "macos",
+            "linux"
+          ],
+          "description": "Target OS for badusb_generate / badusb_validate / badusb_write (default: windows)"
+        },
+        "filename": {
+          "type": "string",
+          "description": "BadUSB script filename under /ext/badusb/ (e.g. 'demo.txt'). Required by badusb_write"
+        },
+        "proposed_content": {
+          "type": "string",
+          "description": "Proposed replacement content for badusb_diff (also accepts `content`)"
         }
       }
     },
@@ -351,6 +504,123 @@
       "args": {},
       "justification": "User wants to check device status",
       "expected_effect": "Return battery level, firmware version, and hardware info"
+    },
+    {
+      "action": "subghz_receive",
+      "args": {
+        "frequency": 433920000
+      },
+      "justification": "User wants to capture ambient Sub-GHz at the default ISM frequency",
+      "expected_effect": "Return captured signal data from Sub-GHz RX"
+    },
+    {
+      "action": "gpio_read",
+      "args": {
+        "pin": "PA7"
+      },
+      "justification": "User wants to sample an external sensor wired to PA7",
+      "expected_effect": "Return the current logic level of pin PA7"
+    },
+    {
+      "action": "gpio_set",
+      "args": {
+        "pin": "PC3",
+        "value": 1
+      },
+      "justification": "User wants to drive PC3 high to enable an external LED",
+      "expected_effect": "Set PC3 output to 1"
+    },
+    {
+      "action": "rfid_write",
+      "args": {
+        "key_type": "EM4100",
+        "key_data": "aabbccddee"
+      },
+      "justification": "User wants to program a blank EM4100 tag with a captured code",
+      "expected_effect": "Write the given data to the RFID tag held near the Flipper"
+    },
+    {
+      "action": "music_play",
+      "args": {
+        "content": "Filetype: Flipper Music Format\nVersion: 0\nBPM: 120\nDuration: 4\nOctave: 4\nNotes: 4C, 4D, 4E, 4C\n"
+      },
+      "justification": "User wants the Flipper to play a short melody",
+      "expected_effect": "Write the FMF song to /ext/music_player/ and launch Music Player"
+    },
+    {
+      "action": "ble_scan_targets",
+      "args": {
+        "duration": 5
+      },
+      "justification": "Operator wants to enumerate nearby BLE devices before choosing a target",
+      "expected_effect": "Return device list (address, RSSI, name, advertised services)"
+    },
+    {
+      "action": "ble_enumerate",
+      "args": {
+        "address": "AA:BB:CC:DD:EE:FF"
+      },
+      "justification": "Operator wants the full GATT attack surface for a scanned device",
+      "expected_effect": "Return services and characteristics with read/write/notify properties"
+    },
+    {
+      "action": "ble_write_char",
+      "args": {
+        "address": "AA:BB:CC:DD:EE:FF",
+        "uuid": "0000ff01-0000-1000-8000-00805f9b34fb",
+        "content": "01FF00",
+        "hex": true
+      },
+      "justification": "Operator wants to trigger a state change on the authorized test device",
+      "expected_effect": "Write the hex payload to the characteristic; requires HIGH-risk approval"
+    },
+    {
+      "action": "vuln_submit",
+      "args": {
+        "target": "192.168.1.10",
+        "vuln_type": "default_creds",
+        "description": "SSH login succeeded with admin:admin",
+        "evidence": "<sshpass output showing successful auth>",
+        "severity": "critical",
+        "complexity": 1
+      },
+      "justification": "Operator records a discovered vulnerability during an engagement",
+      "expected_effect": "Assign an ID, persist the finding, mark status=submitted"
+    },
+    {
+      "action": "vuln_list",
+      "args": {
+        "severity": "critical",
+        "status": "confirmed"
+      },
+      "justification": "Operator wants a summary of every confirmed critical finding",
+      "expected_effect": "Return matching findings sorted by severity"
+    },
+    {
+      "action": "audit_query",
+      "args": {
+        "limit": 20,
+        "risk_level": "HIGH"
+      },
+      "justification": "Operator wants to review recent HIGH-risk actions from this session",
+      "expected_effect": "Return the last 20 HIGH-risk audit entries"
+    },
+    {
+      "action": "badusb_generate",
+      "args": {
+        "description": "open notepad and type 'Hello, world'",
+        "platform": "windows"
+      },
+      "justification": "Operator wants an authored BadUSB script for a demo",
+      "expected_effect": "Return a validated DuckyScript payload; no device effect"
+    },
+    {
+      "action": "load_skill",
+      "args": {
+        "command": "ble-exploitation"
+      },
+      "justification": "Model needs BLE GATT methodology guidance before crafting a write payload",
+      "expected_effect": "Return the ble-exploitation SKILL.md content as tool output"
     }
   ]
 }

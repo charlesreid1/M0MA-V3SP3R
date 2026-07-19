@@ -1,11 +1,18 @@
 package com.vesper.flipper.domain.executor
 
+import com.vesper.flipper.ai.BadUsbRequest
+import com.vesper.flipper.ai.PayloadEngine
+import com.vesper.flipper.ai.PayloadProgress
+import com.vesper.flipper.ai.PayloadResult
+import com.vesper.flipper.ble.BleReconService
 import com.vesper.flipper.ble.FlipperFileSystem
 import com.vesper.flipper.data.SettingsStore
 import com.vesper.flipper.domain.model.*
 import com.vesper.flipper.domain.service.AuditService
 import com.vesper.flipper.domain.service.DiffService
 import com.vesper.flipper.domain.service.PermissionService
+import com.vesper.flipper.domain.service.SkillRegistry
+import com.vesper.flipper.domain.service.VulnTriageService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -36,13 +43,30 @@ class CommandExecutor @Inject constructor(
     private val auditService: AuditService,
     private val diffService: DiffService,
     private val forgeEngine: ForgeEngine,
-    private val settingsStore: SettingsStore
+    private val settingsStore: SettingsStore,
+    private val bleRecon: BleReconService,
+    private val vulnTriage: VulnTriageService,
+    private val payloadEngine: PayloadEngine,
+    private val skillRegistry: SkillRegistry
 ) {
 
     private val pendingApprovals = ConcurrentHashMap<String, PendingApproval>()
 
     private val _currentApproval = MutableStateFlow<PendingApproval?>(null)
     val currentApproval: StateFlow<PendingApproval?> = _currentApproval.asStateFlow()
+
+    /**
+     * All currently-pending approvals, keyed by approval id. Chat's flow uses at
+     * most one approval at a time via [currentApproval]; Ralph campaigns can have
+     * multiple in flight across parallel campaigns and days-long lifetimes, so
+     * the Approval Inbox screen observes this map instead.
+     */
+    private val _allPendingApprovals = MutableStateFlow<Map<String, PendingApproval>>(emptyMap())
+    val allPendingApprovals: StateFlow<Map<String, PendingApproval>> = _allPendingApprovals.asStateFlow()
+
+    private fun publishPendingApprovals() {
+        _allPendingApprovals.value = pendingApprovals.toMap()
+    }
 
     /**
      * Execute a command from the AI agent.
@@ -197,15 +221,22 @@ class CommandExecutor @Inject constructor(
             null
         }
 
+        val expiryClass = if (command.scope != null) {
+            com.vesper.flipper.domain.model.ExpiryClass.AUTONOMOUS
+        } else {
+            com.vesper.flipper.domain.model.ExpiryClass.INTERACTIVE
+        }
         val approval = PendingApproval(
             command = command,
             riskAssessment = riskAssessment,
             diff = diff,
-            traceId = traceId
+            traceId = traceId,
+            expiryClass = expiryClass,
         )
 
         pendingApprovals[approval.id] = approval
         _currentApproval.value = approval
+        publishPendingApprovals()
 
         auditService.log(
             AuditEntry(
@@ -253,6 +284,7 @@ class CommandExecutor @Inject constructor(
                     )
                 )
             }
+        publishPendingApprovals()
 
         if (_currentApproval.value?.id == approvalId) {
             _currentApproval.value = null
@@ -332,6 +364,7 @@ class CommandExecutor @Inject constructor(
     suspend fun reject(approvalId: String, sessionId: String): CommandResult {
         clearExpiredApprovals()
         val approval = pendingApprovals.remove(approvalId)
+        publishPendingApprovals()
 
         if (_currentApproval.value?.id == approvalId) {
             _currentApproval.value = null
@@ -651,6 +684,334 @@ class CommandExecutor @Inject constructor(
                 )
             }
 
+            CommandAction.SUBGHZ_RECEIVE -> {
+                val freq = command.args.frequency ?: 433_920_000L
+                runCliAction("subghz rx $freq", "Sub-GHz RX capture at ${freq}Hz")
+            }
+
+            CommandAction.SUBGHZ_DECODE_RAW -> {
+                val path = command.args.path
+                    ?: throw IllegalArgumentException("Sub-GHz .sub file path required (e.g. /ext/subghz/capture.sub)")
+                runCliAction("subghz decode_raw $path", "Decoded Sub-GHz capture: $path")
+            }
+
+            CommandAction.IR_RECEIVE -> runCliAction("ir rx", "IR RX capture")
+
+            CommandAction.IR_TRANSMIT_RAW -> {
+                val samples = command.args.content
+                    ?: throw IllegalArgumentException("Raw IR samples required in content")
+                val freq = command.args.frequency ?: 38000L
+                val dc = command.args.dutyCycle ?: 0.33
+                val dcPct = (dc * 100).toInt()
+                runCliAction(
+                    "ir tx RAW F:$freq DC:$dcPct $samples",
+                    "Transmitted raw IR (F=${freq}Hz, DC=${dcPct}%)"
+                )
+            }
+
+            CommandAction.NFC_DETECT -> runCliAction("nfc detect", "NFC detect")
+
+            CommandAction.NFC_FIELD -> runCliAction("nfc field", "NFC field (reader detection)")
+
+            CommandAction.RFID_READ -> runCliAction("rfid read", "RFID read")
+
+            CommandAction.RFID_WRITE -> {
+                val keyType = command.args.keyType
+                    ?: throw IllegalArgumentException("RFID key_type required (e.g. EM4100, HIDProx)")
+                val keyData = command.args.keyData
+                    ?: throw IllegalArgumentException("RFID key_data required")
+                runCliAction(
+                    "rfid write $keyType $keyData",
+                    "RFID write: type=$keyType"
+                )
+            }
+
+            CommandAction.GPIO_READ -> {
+                val pin = command.args.pin
+                    ?: throw IllegalArgumentException("GPIO pin required (e.g. PA7, PC3)")
+                runCliAction("gpio read $pin", "GPIO read: $pin")
+            }
+
+            CommandAction.GPIO_SET -> {
+                val pin = command.args.pin
+                    ?: throw IllegalArgumentException("GPIO pin required")
+                val value = command.args.value
+                    ?: throw IllegalArgumentException("GPIO value required (0 or 1)")
+                runCliAction("gpio set $pin $value", "GPIO $pin ← $value")
+            }
+
+            CommandAction.GPIO_MODE -> {
+                val pin = command.args.pin
+                    ?: throw IllegalArgumentException("GPIO pin required")
+                val mode = command.args.mode
+                    ?: throw IllegalArgumentException("GPIO mode required (0=input, 1=output)")
+                val modeName = if (mode == 1) "output" else "input"
+                runCliAction("gpio mode $pin $mode", "GPIO $pin mode ← $modeName")
+            }
+
+            CommandAction.APPS_LIST -> runCliAction("loader list", "Listed Flipper apps")
+
+            CommandAction.MUSIC_PLAY -> {
+                val song = command.args.content
+                    ?: throw IllegalArgumentException("Song data (FMF format) required in content")
+                val destPath = (command.args.path ?: "/ext/music_player/vesper.fmf").trim()
+                fileSystem.writeFile(destPath, song).getOrThrow()
+                val output = fileSystem.executeCli("loader open \"Music Player\" $destPath")
+                    .getOrThrow()
+                CommandResultData(
+                    content = output,
+                    message = "Wrote $destPath and launched Music Player"
+                )
+            }
+
+            CommandAction.MUSIC_GET_FORMAT -> CommandResultData(
+                content = FLIPPER_MUSIC_FORMAT_SPEC,
+                message = "Flipper Music Format (FMF) specification"
+            )
+
+            CommandAction.GET_SYSTEM_INFO -> runCliAction(
+                "device_info",
+                "System info from Flipper"
+            )
+
+            CommandAction.BLE_SCAN_TARGETS -> {
+                val durationSec = command.args.duration ?: 5.0
+                val nameFilter = command.args.command?.trim()?.takeIf { it.isNotEmpty() }
+                val rssiThreshold = command.args.value ?: -90
+                val devices = bleRecon.scan(
+                    durationMs = (durationSec * 1000).toLong(),
+                    nameFilter = nameFilter,
+                    rssiThreshold = rssiThreshold,
+                ).getOrThrow()
+                CommandResultData(
+                    content = renderBleScan(devices),
+                    message = "BLE scan: ${devices.size} device(s)"
+                )
+            }
+
+            CommandAction.BLE_ENUMERATE -> {
+                val address = requireBleAddress(command.args.address)
+                val timeoutMs = ((command.args.duration ?: 10.0) * 1000).toLong()
+                val profile = bleRecon.enumerate(address, timeoutMs).getOrThrow()
+                CommandResultData(
+                    content = renderGattProfile(address, profile),
+                    message = "Enumerated $address: ${profile.services.size} service(s)"
+                )
+            }
+
+            CommandAction.BLE_READ_CHAR -> {
+                val address = requireBleAddress(command.args.address)
+                val uuid = requireBleUuid(command.args.uuid)
+                val timeoutMs = ((command.args.duration ?: 10.0) * 1000).toLong()
+                val bytes = bleRecon.readCharacteristic(address, uuid, timeoutMs).getOrThrow()
+                CommandResultData(
+                    content = "$address $uuid → ${bytes.toHexString()} (${bytes.size} bytes)",
+                    message = "Read $uuid on $address"
+                )
+            }
+
+            CommandAction.BLE_WRITE_CHAR -> {
+                val address = requireBleAddress(command.args.address)
+                val uuid = requireBleUuid(command.args.uuid)
+                val raw = command.args.content
+                    ?: throw IllegalArgumentException("BLE write requires content (payload)")
+                val hex = command.args.hex ?: true
+                val bytes = if (hex) parseHexPayload(raw) else raw.toByteArray(Charsets.UTF_8)
+                val withResponse = command.args.withResponse ?: true
+                val timeoutMs = ((command.args.duration ?: 10.0) * 1000).toLong()
+                bleRecon.writeCharacteristic(address, uuid, bytes, withResponse, timeoutMs).getOrThrow()
+                CommandResultData(
+                    content = "Wrote ${bytes.size} byte(s) to $uuid on $address",
+                    message = "BLE write ($uuid, ${bytes.size} bytes${if (withResponse) "" else ", no-response"})"
+                )
+            }
+
+            CommandAction.BLE_SUBSCRIBE -> {
+                val address = requireBleAddress(command.args.address)
+                val uuid = requireBleUuid(command.args.uuid)
+                val listenSec = command.args.duration ?: 5.0
+                val notifications = bleRecon.subscribe(
+                    address = address,
+                    uuid = uuid,
+                    listenMs = (listenSec * 1000).toLong(),
+                    connectTimeoutMs = 10_000L,
+                ).getOrThrow()
+                val body = if (notifications.isEmpty()) {
+                    "no notifications received"
+                } else {
+                    notifications.joinToString("\n") { it.toHexString() }
+                }
+                CommandResultData(
+                    content = "$address $uuid over ${listenSec}s → ${notifications.size} notification(s)\n$body",
+                    message = "Collected ${notifications.size} BLE notification(s)"
+                )
+            }
+
+            // ── Vulnerability triage (Room-backed) ────────────────────
+            CommandAction.VULN_SUBMIT -> {
+                val severity = VulnTriageService.Severity.from(command.args.severity)
+                    ?: throw IllegalArgumentException("severity must be one of critical/high/medium/low")
+                val complexity = command.args.complexity
+                    ?: throw IllegalArgumentException("complexity (1-10) required")
+                val finding = vulnTriage.submit(
+                    VulnTriageService.SubmitRequest(
+                        target = requireNonBlank(command.args.target, "target"),
+                        vulnType = requireNonBlank(command.args.vulnType, "vuln_type"),
+                        description = requireNonBlank(command.args.description, "description"),
+                        evidence = requireNonBlank(command.args.evidence, "evidence"),
+                        severity = severity,
+                        complexity = complexity,
+                    )
+                )
+                CommandResultData(
+                    content = vulnTriage.renderFinding(finding, prefix = "Submitted"),
+                    message = "Submitted vulnerability ${finding.id} (${finding.severity.uppercase()})"
+                )
+            }
+
+            CommandAction.VULN_VALIDATE -> {
+                val vulnId = requireNonBlank(command.args.vulnId, "vuln_id")
+                val reproduced = command.args.reproduced
+                    ?: throw IllegalArgumentException("reproduced (boolean) required")
+                val updated = vulnTriage.validate(
+                    VulnTriageService.ValidateRequest(
+                        vulnId = vulnId,
+                        reproduced = reproduced,
+                        notes = command.args.notes,
+                    )
+                ) ?: throw IllegalArgumentException("Vulnerability $vulnId not found")
+                CommandResultData(
+                    content = vulnTriage.renderFinding(updated, prefix = "Validated"),
+                    message = "Validated ${updated.id}: ${updated.status.uppercase()} (attempts=${updated.reproductionAttempts})"
+                )
+            }
+
+            CommandAction.VULN_LIST -> {
+                val filters = VulnTriageService.ListFilters(
+                    target = command.args.target?.takeIf { it.isNotBlank() },
+                    severity = VulnTriageService.Severity.from(command.args.severity),
+                    status = VulnTriageService.Status.from(command.args.status),
+                )
+                val findings = vulnTriage.list(filters)
+                CommandResultData(
+                    content = vulnTriage.renderList(findings),
+                    message = "Listed ${findings.size} vulnerability finding(s)"
+                )
+            }
+
+            CommandAction.VULN_CLASSIFY -> {
+                val vulnType = requireNonBlank(command.args.vulnType, "vuln_type")
+                val result = vulnTriage.classify(vulnType, command.args.vulnId)
+                CommandResultData(
+                    content = vulnTriage.renderClassification(result),
+                    message = "Classified $vulnType → ${result.severity.wire.uppercase()}"
+                )
+            }
+
+            // ── Audit query ───────────────────────────────────────────
+            CommandAction.AUDIT_QUERY -> {
+                val limit = command.args.limit ?: 20
+                val actionFilter = command.args.command?.trim()?.takeIf { it.isNotEmpty() }
+                val riskFilter = command.args.riskLevel?.trim()?.uppercase()?.takeIf { it.isNotEmpty() }
+                    ?.let { raw ->
+                        try {
+                            RiskLevel.valueOf(raw)
+                        } catch (e: IllegalArgumentException) {
+                            throw IllegalArgumentException(
+                                "risk_level must be one of LOW/MEDIUM/HIGH/BLOCKED, got '$raw'"
+                            )
+                        }
+                    }
+                val entries = auditService.queryRecent(limit, actionFilter, riskFilter)
+                CommandResultData(
+                    content = renderAuditEntries(entries),
+                    message = "Audit query: ${entries.size} entr(y|ies)"
+                )
+            }
+
+            // ── BadUSB helpers ───────────────────────────────────────
+            CommandAction.BADUSB_GENERATE -> {
+                val description = command.args.description
+                    ?: command.args.prompt
+                    ?: command.args.command
+                    ?: throw IllegalArgumentException("description of BadUSB script required")
+                val platform = parseBadUsbPlatform(command.args.platform)
+                val result = payloadEngine.generateBadUsb(
+                    request = BadUsbRequest(description = description, platform = platform),
+                    onProgress = { _: PayloadProgress -> },
+                )
+                when (result) {
+                    is PayloadResult.Success -> CommandResultData(
+                        content = result.payload,
+                        message = "Generated BadUSB script (${platform})"
+                    )
+                    is PayloadResult.Error -> throw IllegalStateException(
+                        "BadUSB generation failed: ${result.message}"
+                    )
+                }
+            }
+
+            CommandAction.BADUSB_VALIDATE -> {
+                val script = command.args.content
+                    ?: throw IllegalArgumentException("BadUSB script content required")
+                val platform = parseBadUsbPlatform(command.args.platform)
+                val validated = payloadEngine.validateBadUsb(script, platform).getOrThrow()
+                CommandResultData(
+                    content = renderBadUsbValidation(validated),
+                    message = "Validated BadUSB (valid=${validated.isValid}, errors=${validated.errors.size})"
+                )
+            }
+
+            CommandAction.BADUSB_WRITE -> {
+                val script = command.args.content
+                    ?: throw IllegalArgumentException("BadUSB script content required")
+                val filename = requireBadUsbFilename(command.args.filename)
+                val platform = parseBadUsbPlatform(command.args.platform)
+                val validated = payloadEngine.validateBadUsb(script, platform).getOrNull()
+                if (validated != null && !validated.isValid && validated.errors.isNotEmpty()) {
+                    throw IllegalStateException(
+                        "Refusing to write: BadUSB validation failed with errors: ${validated.errors.joinToString("; ")}"
+                    )
+                }
+                val path = "/ext/badusb/$filename"
+                fileSystem.writeFile(path, script).getOrThrow()
+                CommandResultData(
+                    content = "Wrote validated BadUSB script to $path (${script.length} chars).",
+                    message = "Saved BadUSB → $path"
+                )
+            }
+
+            CommandAction.BADUSB_DIFF -> {
+                val path = command.args.path
+                    ?: throw IllegalArgumentException("path to existing BadUSB script required")
+                val proposed = command.args.proposedContent
+                    ?: command.args.content
+                    ?: throw IllegalArgumentException("proposed_content (or content) required")
+                val existing = fileSystem.readFile(path).getOrElse { "" }
+                val diff = diffService.computeDiff(existing.takeIf { it.isNotBlank() }, proposed)
+                CommandResultData(
+                    content = diff.unifiedDiff,
+                    diff = diff,
+                    message = "Diff for $path: +${diff.linesAdded} / -${diff.linesRemoved}"
+                )
+            }
+
+            CommandAction.LOAD_SKILL -> {
+                val id = command.args.command?.trim()?.takeIf { it.isNotEmpty() }
+                    ?: throw IllegalArgumentException("skill id required (use `command`)")
+                val content = skillRegistry.load(id)
+                    ?: run {
+                        val available = skillRegistry.list().joinToString(", ") { it.id }
+                        throw IllegalArgumentException(
+                            "Unknown skill '$id'. Available: $available"
+                        )
+                    }
+                CommandResultData(
+                    content = content,
+                    message = "Loaded skill: $id (${content.length} chars)"
+                )
+            }
+
             // REQUEST_PHOTO is intercepted by VesperAgent before reaching here.
             // This stub exists only so the exhaustive when compiles.
             CommandAction.REQUEST_PHOTO -> {
@@ -660,6 +1021,150 @@ class CommandExecutor @Inject constructor(
                 )
             }
         }
+    }
+
+    /**
+     * Shim for actions that are a single CLI invocation with no post-processing.
+     * Use only after the `when` above proves the action is exhaustively handled — never
+     * inside `else`, since we rely on the compiler to catch missing actions.
+     */
+    private suspend fun runCliAction(cli: String, message: String): CommandResultData {
+        val output = fileSystem.executeCli(cli).getOrThrow()
+        return CommandResultData(content = output, message = message)
+    }
+
+    // ─── BLE recon rendering + arg validation ─────────────────────────────────
+
+    private fun requireBleAddress(a: String?): String {
+        val addr = a?.trim().orEmpty()
+        require(addr.matches(BLE_MAC_REGEX)) {
+            "Invalid BLE address '$a'. Expected MAC like AA:BB:CC:DD:EE:FF."
+        }
+        return addr
+    }
+
+    private fun requireBleUuid(u: String?): UUID {
+        val raw = u?.trim().orEmpty()
+        require(raw.isNotEmpty()) { "BLE characteristic UUID required." }
+        return try {
+            // Accept the 16-bit short form (e.g. "2A00") by expanding to the base UUID.
+            if (raw.length == 4 && raw.all { it.isHexDigit() }) {
+                UUID.fromString("0000$raw-0000-1000-8000-00805f9b34fb")
+            } else {
+                UUID.fromString(raw)
+            }
+        } catch (e: IllegalArgumentException) {
+            throw IllegalArgumentException("Invalid BLE UUID '$u'.")
+        }
+    }
+
+    private fun parseHexPayload(raw: String): ByteArray {
+        val cleaned = raw.replace(Regex("\\s+"), "").replace(":", "")
+        require(cleaned.length % 2 == 0) { "Hex payload must have an even number of characters." }
+        require(cleaned.all { it.isHexDigit() }) { "Hex payload contains non-hex characters." }
+        return ByteArray(cleaned.length / 2) { i ->
+            cleaned.substring(i * 2, i * 2 + 2).toInt(16).toByte()
+        }
+    }
+
+    private fun Char.isHexDigit(): Boolean =
+        this in '0'..'9' || this in 'a'..'f' || this in 'A'..'F'
+
+    private fun ByteArray.toHexString(): String =
+        joinToString("") { "%02X".format(it) }
+
+    private fun renderBleScan(devices: List<BleReconService.ScannedDevice>): String {
+        if (devices.isEmpty()) return "No BLE devices matched."
+        return buildString {
+            appendLine("BLE scan (${devices.size} device(s), sorted by RSSI):")
+            devices.take(50).forEach { d ->
+                appendLine("  ${d.address}  RSSI=${d.rssi}  name=${d.name ?: "-"}")
+                if (d.serviceUuids.isNotEmpty()) {
+                    appendLine("    services: ${d.serviceUuids.joinToString(", ")}")
+                }
+                if (d.manufacturerData.isNotEmpty()) {
+                    val summary = d.manufacturerData.entries.joinToString(", ") { (id, bytes) ->
+                        "0x%04X=%s".format(id, bytes.joinToString("") { "%02X".format(it) })
+                    }
+                    appendLine("    mfg: $summary")
+                }
+            }
+            if (devices.size > 50) append("(${devices.size - 50} more truncated)")
+        }.trim()
+    }
+
+    // ─── Vuln / BadUSB / audit helpers ────────────────────────────────────────
+
+    private fun requireNonBlank(v: String?, name: String): String {
+        val trimmed = v?.trim().orEmpty()
+        require(trimmed.isNotEmpty()) { "$name required" }
+        return trimmed
+    }
+
+    private fun requireBadUsbFilename(v: String?): String {
+        val trimmed = v?.trim().orEmpty()
+        require(trimmed.isNotEmpty()) { "filename required" }
+        require(!trimmed.contains('/') && !trimmed.contains('\\')) {
+            "filename must not contain path separators"
+        }
+        require(!trimmed.contains("..")) { "filename must not contain '..'" }
+        return if (trimmed.endsWith(".txt", ignoreCase = true)) trimmed else "$trimmed.txt"
+    }
+
+    private fun parseBadUsbPlatform(raw: String?): BadUsbPlatform =
+        when (raw?.trim()?.lowercase()) {
+            null, "" -> BadUsbPlatform.WINDOWS
+            "windows" -> BadUsbPlatform.WINDOWS
+            "macos", "mac" -> BadUsbPlatform.MACOS
+            "linux" -> BadUsbPlatform.LINUX
+            else -> throw IllegalArgumentException("platform must be windows|macos|linux, got '$raw'")
+        }
+
+    private fun renderBadUsbValidation(v: com.vesper.flipper.ai.ValidatedBadUsbScript): String =
+        buildString {
+            appendLine("Validation: ${if (v.isValid) "OK" else "issues found"}")
+            if (v.errors.isNotEmpty()) {
+                appendLine("Errors:")
+                v.errors.forEach { appendLine("  - $it") }
+            }
+            if (v.warnings.isNotEmpty()) {
+                appendLine("Warnings:")
+                v.warnings.forEach { appendLine("  - $it") }
+            }
+            if (v.optimizations.isNotEmpty()) {
+                appendLine("Optimizations:")
+                v.optimizations.forEach { appendLine("  - $it") }
+            }
+            appendLine()
+            appendLine("Cleaned script:")
+            append(v.script)
+        }.trimEnd()
+
+    private fun renderAuditEntries(entries: List<AuditEntry>): String {
+        if (entries.isEmpty()) return "No audit entries matched."
+        return buildString {
+            appendLine("Audit query: ${entries.size} entr(y|ies) (most recent first)")
+            entries.forEach { e ->
+                appendLine(
+                    "  ${e.timestamp} | ${e.actionType} | risk=${e.riskLevel ?: "-"} | session=${e.sessionId.take(8)}"
+                )
+                e.command?.let { appendLine("    action=${it.action.name}") }
+            }
+        }.trimEnd()
+    }
+
+    private fun renderGattProfile(address: String, profile: BleReconService.GattProfile): String {
+        if (profile.services.isEmpty()) return "$address exposes no GATT services."
+        return buildString {
+            appendLine("GATT profile for $address (${profile.services.size} service(s)):")
+            profile.services.forEach { svc ->
+                appendLine("  service ${svc.uuid} (${svc.characteristics.size} char(s))")
+                svc.characteristics.forEach { ch ->
+                    val props = if (ch.properties.isEmpty()) "-" else ch.properties.joinToString(",")
+                    appendLine("    char ${ch.uuid}  [$props]")
+                }
+            }
+        }.trim()
     }
 
     private fun executeFapHubSearch(query: String): CommandResultData {
@@ -881,12 +1386,13 @@ class CommandExecutor @Inject constructor(
 
     fun clearExpiredApprovals() {
         val now = System.currentTimeMillis()
-        pendingApprovals.entries.removeIf { it.value.expiresAt < now }
+        val removed = pendingApprovals.entries.removeIf { it.value.expiresAt < now }
         _currentApproval.value?.let {
             if (it.expiresAt < now) {
                 _currentApproval.value = null
             }
         }
+        if (removed) publishPendingApprovals()
     }
 
     private data class DownloadedPayload(
@@ -1404,6 +1910,7 @@ class CommandExecutor @Inject constructor(
         private const val USER_AGENT = "VesperFlipper/1.0 (Android)"
         private const val MAX_FAP_BYTES = 6 * 1024 * 1024
         private const val MAX_HTML_CHARS = 256_000
+        private val BLE_MAC_REGEX = Regex("^[0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5}$")
         private val HREF_FAP_REGEX = Regex(
             """href\s*=\s*["']([^"']+\.fap(?:\?[^"']*)?)["']""",
             RegexOption.IGNORE_CASE

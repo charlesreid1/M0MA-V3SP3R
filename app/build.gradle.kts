@@ -157,6 +157,11 @@ dependencies {
 
     // Diff utils
     implementation("io.github.java-diff-utils:java-diff-utils:4.12")
+
+    // WorkManager (Ralph autonomous campaigns)
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
+    implementation("androidx.hilt:hilt-work:1.2.0")
+    ksp("androidx.hilt:hilt-compiler:1.2.0")
 }
 
 // ─── execute_command JSON schema generation ────────────────────────────────
@@ -180,4 +185,8 @@ tasks.register<VerifyExecuteCommandSchemaTask>("verifyExecuteCommandSchema") {
     description = "Fail if docs/execute_command_schema.json is out of sync with CommandAction."
     commandKtFile.set(commandKt)
     committedFile.set(committedSchema)
+    // Verify reads the same file generate writes. When both tasks run in one invocation,
+    // Gradle rightly demands an explicit ordering — verify checks the *committed* file,
+    // so it should always run before generate would rewrite it.
+    mustRunAfter("generateExecuteCommandSchema")
 }

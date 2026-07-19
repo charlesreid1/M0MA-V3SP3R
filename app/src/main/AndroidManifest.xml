@@ -49,7 +49,15 @@
             android:enabled="true"
             android:exported="true"
             android:label="@string/app_name"
-            android:theme="@style/Theme.Vesper" />
+            android:launchMode="singleTop"
+            android:theme="@style/Theme.Vesper">
+            <!-- Deep link from campaign approval notifications. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="vesper" android:host="approval-inbox" />
+            </intent-filter>
+        </activity>
 
         <!-- Dedicated launcher entry to avoid icon disappearing on some OEM launchers -->
         <activity-alias
@@ -103,6 +111,20 @@
             <meta-data
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
+        </provider>
+
+        <!-- Disable the default WorkManager initializer so Hilt's HiltWorkerFactory
+             is used to construct workers (needed for @HiltWorker injection into
+             Ralph campaign phase workers). -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
         </provider>
 
     </application>

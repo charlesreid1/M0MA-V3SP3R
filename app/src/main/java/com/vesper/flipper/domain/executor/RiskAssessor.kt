@@ -40,6 +40,41 @@ class RiskAssessor @Inject constructor(
             )
         }
 
+        // Scope check (Ralph campaigns only) — runs before risk classification so an
+        // out-of-scope target is BLOCKED regardless of the action's normal risk tier.
+        // Chat sessions leave command.scope null and skip this whole path.
+        command.scope?.let { scope ->
+            val targets = extractScopeTargets(command)
+            val outOfScopeHit = targets.firstOrNull { t ->
+                scope.outOfScope.any { it.equals(t, ignoreCase = true) }
+            }
+            if (outOfScopeHit != null) {
+                return RiskAssessment(
+                    level = RiskLevel.BLOCKED,
+                    reason = "Target '$outOfScopeHit' is out of scope for campaign ${scope.campaignId.take(8)}",
+                    affectedPaths = paths,
+                    requiresDiff = false,
+                    requiresConfirmation = false,
+                    blockedReason = "Out of scope"
+                )
+            }
+            if (scope.inScope.isNotEmpty() && targets.isNotEmpty()) {
+                val notInScope = targets.firstOrNull { t ->
+                    scope.inScope.none { it.contains(t, ignoreCase = true) || t.contains(it, ignoreCase = true) }
+                }
+                if (notInScope != null) {
+                    return RiskAssessment(
+                        level = RiskLevel.BLOCKED,
+                        reason = "Target '$notInScope' is not in campaign ${scope.campaignId.take(8)} scope",
+                        affectedPaths = paths,
+                        requiresDiff = false,
+                        requiresConfirmation = false,
+                        blockedReason = "Out of scope"
+                    )
+                }
+            }
+        }
+
         // Assess based on action type
         return when (command.action) {
             // LOW risk: read-only operations
@@ -47,7 +82,25 @@ class RiskAssessor @Inject constructor(
             CommandAction.READ_FILE,
             CommandAction.GET_DEVICE_INFO,
             CommandAction.GET_STORAGE_INFO,
-            CommandAction.SEARCH_FAPHUB -> {
+            CommandAction.GET_SYSTEM_INFO,
+            CommandAction.SEARCH_FAPHUB,
+            CommandAction.APPS_LIST,
+            CommandAction.SUBGHZ_RECEIVE,
+            CommandAction.SUBGHZ_DECODE_RAW,
+            CommandAction.IR_RECEIVE,
+            CommandAction.NFC_DETECT,
+            CommandAction.NFC_FIELD,
+            CommandAction.RFID_READ,
+            CommandAction.GPIO_READ,
+            CommandAction.MUSIC_GET_FORMAT,
+            CommandAction.BLE_SCAN_TARGETS,
+            CommandAction.VULN_SUBMIT,
+            CommandAction.VULN_LIST,
+            CommandAction.VULN_CLASSIFY,
+            CommandAction.AUDIT_QUERY,
+            CommandAction.BADUSB_VALIDATE,
+            CommandAction.BADUSB_DIFF,
+            CommandAction.LOAD_SKILL -> {
                 RiskAssessment(
                     level = RiskLevel.LOW,
                     reason = "Read-only operation",
@@ -289,6 +342,108 @@ class RiskAssessor @Inject constructor(
                 )
             }
 
+            // MEDIUM risk: IR raw transmission (arbitrary IR waveform)
+            CommandAction.IR_TRANSMIT_RAW -> {
+                RiskAssessment(
+                    level = RiskLevel.MEDIUM,
+                    reason = "Infrared raw signal transmission",
+                    affectedPaths = paths,
+                    requiresDiff = false,
+                    requiresConfirmation = true
+                )
+            }
+
+            // MEDIUM risk: GPIO writes drive external hardware
+            CommandAction.GPIO_SET,
+            CommandAction.GPIO_MODE -> {
+                RiskAssessment(
+                    level = RiskLevel.MEDIUM,
+                    reason = "GPIO pin write",
+                    affectedPaths = paths,
+                    requiresDiff = false,
+                    requiresConfirmation = true
+                )
+            }
+
+            // MEDIUM risk: writes a music file to /ext/ and launches Music Player
+            CommandAction.MUSIC_PLAY -> {
+                RiskAssessment(
+                    level = RiskLevel.MEDIUM,
+                    reason = "Play music file on Flipper",
+                    affectedPaths = paths,
+                    requiresDiff = false,
+                    requiresConfirmation = true
+                )
+            }
+
+            // HIGH risk: writes to a physical RFID tag
+            CommandAction.RFID_WRITE -> {
+                RiskAssessment(
+                    level = RiskLevel.HIGH,
+                    reason = "RFID tag write",
+                    affectedPaths = paths,
+                    requiresDiff = false,
+                    requiresConfirmation = true
+                )
+            }
+
+            // MEDIUM risk: BLE recon that connects to a target device
+            CommandAction.BLE_ENUMERATE,
+            CommandAction.BLE_READ_CHAR,
+            CommandAction.BLE_SUBSCRIBE -> {
+                RiskAssessment(
+                    level = RiskLevel.MEDIUM,
+                    reason = "BLE recon against target device",
+                    affectedPaths = paths,
+                    requiresDiff = false,
+                    requiresConfirmation = true
+                )
+            }
+
+            // HIGH risk: BLE write can trigger actions on the target device
+            CommandAction.BLE_WRITE_CHAR -> {
+                RiskAssessment(
+                    level = RiskLevel.HIGH,
+                    reason = "BLE characteristic write to target device",
+                    affectedPaths = paths,
+                    requiresDiff = false,
+                    requiresConfirmation = true
+                )
+            }
+
+            // MEDIUM risk: mutates a vulnerability finding's status
+            CommandAction.VULN_VALIDATE -> {
+                RiskAssessment(
+                    level = RiskLevel.MEDIUM,
+                    reason = "Vulnerability finding validation",
+                    affectedPaths = paths,
+                    requiresDiff = false,
+                    requiresConfirmation = true
+                )
+            }
+
+            // MEDIUM risk: LLM authoring for a payload that may later be shipped for execution
+            CommandAction.BADUSB_GENERATE -> {
+                RiskAssessment(
+                    level = RiskLevel.MEDIUM,
+                    reason = "AI payload generation (BadUSB)",
+                    affectedPaths = paths,
+                    requiresDiff = false,
+                    requiresConfirmation = true
+                )
+            }
+
+            // MEDIUM risk: writes a BadUSB script to /ext/badusb/ (parallels WRITE_FILE)
+            CommandAction.BADUSB_WRITE -> {
+                RiskAssessment(
+                    level = RiskLevel.MEDIUM,
+                    reason = "BadUSB script write to Flipper",
+                    affectedPaths = paths,
+                    requiresDiff = true,
+                    requiresConfirmation = false
+                )
+            }
+
             // HIGH risk: BadUSB executes keystrokes on a connected computer
             CommandAction.BADUSB_EXECUTE -> {
                 RiskAssessment(
@@ -390,6 +545,28 @@ class RiskAssessor @Inject constructor(
         return paths
     }
 
+    /**
+     * Extract the target identifiers this command is aimed at, for scope
+     * enforcement. Returns whatever the command args describe as a target —
+     * BLE MAC, vulnerability target string, frequency, downloaded URL host, etc.
+     *
+     * Returned strings are compared against [Scope.inScope]/[Scope.outOfScope]
+     * by the scope-check block in [assess]. Filesystem paths are intentionally
+     * NOT included here — path protection is a separate concern already handled
+     * by [ProtectedPaths].
+     */
+    private fun extractScopeTargets(command: ExecuteCommand): List<String> {
+        val out = mutableListOf<String>()
+        command.args.address?.trim()?.takeIf { it.isNotEmpty() }?.let(out::add)
+        command.args.target?.trim()?.takeIf { it.isNotEmpty() }?.let(out::add)
+        command.args.frequency?.let { out.add(it.toString()) }
+        // download_url host — for DOWNLOAD_RESOURCE, GITHUB_SEARCH etc. Best-effort.
+        command.args.downloadUrl?.let { url ->
+            runCatching { java.net.URI(url).host }.getOrNull()?.takeIf { it.isNotBlank() }?.let(out::add)
+        }
+        return out
+    }
+
     private fun isUnlockedInSettings(path: String): Boolean {
         // Check if user has explicitly unlocked this protected path
         return permissionService.isProtectedPathUnlocked(path)
@@ -441,7 +618,16 @@ class RiskAssessor @Inject constructor(
             "storage stat",
             // Harmless hardware feedback
             "led ",
-            "vibro "
+            "vibro ",
+            // Passive RF/tag capture and pin reads
+            "subghz rx",
+            "subghz decode_raw",
+            "ir rx",
+            "nfc detect",
+            "nfc field",
+            "rfid read",
+            "gpio read",
+            "loader list"
         )
 
         /**
@@ -450,7 +636,6 @@ class RiskAssessor @Inject constructor(
          */
         private val MEDIUM_CLI_PREFIXES = listOf(
             "loader open",
-            "loader list",
             "loader info",
             "subghz tx",
             "subghz tx_from_file",
@@ -470,9 +655,14 @@ class RiskAssessor @Inject constructor(
             "ble_scan",
             "blescan",
             "ble scan",
+            // GPIO writes drive external hardware; user confirms once.
+            "gpio set",
+            "gpio mode",
             // Note: badusb is HIGH risk via dedicated BADUSB_EXECUTE action.
             // But if someone uses raw CLI, we still want user confirmation (HIGH via else branch).
             // So badusb is intentionally NOT in the MEDIUM list.
+            // Note: `rfid write` is intentionally NOT in the MEDIUM list — it falls to HIGH
+            // via the else branch, matching the typed RFID_WRITE action.
         )
     }
 }

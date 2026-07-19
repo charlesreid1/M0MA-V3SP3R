@@ -6,6 +6,13 @@ import kotlinx.serialization.Serializable
 /**
  * The single command interface for AI agent interaction.
  * All Flipper operations go through this unified structure.
+ *
+ * [scope] is populated only by [com.vesper.flipper.domain.ralph.PhaseWorker] when
+ * a Ralph campaign issues an action; chat sessions leave it null. When set, the
+ * risk assessor enforces scope BEFORE anything else — an out-of-scope target
+ * gets a BLOCKED verdict regardless of the action's normal risk tier. The model
+ * never sees this field: it's not in the tool schema, and PhaseWorker attaches
+ * it after parsing the tool call.
  */
 @Serializable
 data class ExecuteCommand(
@@ -13,7 +20,26 @@ data class ExecuteCommand(
     val args: CommandArgs,
     val justification: String,
     @SerialName("expected_effect")
-    val expectedEffect: String
+    val expectedEffect: String,
+    val scope: Scope? = null
+)
+
+/**
+ * The scope guardrail a Ralph campaign attaches to every tool call it issues.
+ * Comparison is case-insensitive substring for [inScope] (targets are things like
+ * BLE MACs, IPs, hostnames — a scan result might normalise them slightly) and
+ * exact-match (case-insensitive) for [outOfScope] once we've decided a target is
+ * blocked. If [inScope] is empty, no positive check is performed — but if
+ * [outOfScope] contains a hit, the command is still blocked.
+ */
+@Serializable
+data class Scope(
+    @SerialName("campaign_id")
+    val campaignId: String,
+    @SerialName("in_scope")
+    val inScope: List<String> = emptyList(),
+    @SerialName("out_of_scope")
+    val outOfScope: List<String> = emptyList()
 )
 
 @Serializable
@@ -80,14 +106,38 @@ enum class CommandAction {
     @SerialName("subghz_transmit")
     SUBGHZ_TRANSMIT,
 
+    @SerialName("subghz_receive")
+    SUBGHZ_RECEIVE,
+
+    @SerialName("subghz_decode_raw")
+    SUBGHZ_DECODE_RAW,
+
     @SerialName("ir_transmit")
     IR_TRANSMIT,
+
+    @SerialName("ir_transmit_raw")
+    IR_TRANSMIT_RAW,
+
+    @SerialName("ir_receive")
+    IR_RECEIVE,
 
     @SerialName("nfc_emulate")
     NFC_EMULATE,
 
+    @SerialName("nfc_detect")
+    NFC_DETECT,
+
+    @SerialName("nfc_field")
+    NFC_FIELD,
+
     @SerialName("rfid_emulate")
     RFID_EMULATE,
+
+    @SerialName("rfid_read")
+    RFID_READ,
+
+    @SerialName("rfid_write")
+    RFID_WRITE,
 
     @SerialName("ibutton_emulate")
     IBUTTON_EMULATE,
@@ -95,8 +145,74 @@ enum class CommandAction {
     @SerialName("badusb_execute")
     BADUSB_EXECUTE,
 
+    @SerialName("badusb_generate")
+    BADUSB_GENERATE,
+
+    @SerialName("badusb_validate")
+    BADUSB_VALIDATE,
+
+    @SerialName("badusb_write")
+    BADUSB_WRITE,
+
+    @SerialName("badusb_diff")
+    BADUSB_DIFF,
+
+    @SerialName("vuln_submit")
+    VULN_SUBMIT,
+
+    @SerialName("vuln_validate")
+    VULN_VALIDATE,
+
+    @SerialName("vuln_list")
+    VULN_LIST,
+
+    @SerialName("vuln_classify")
+    VULN_CLASSIFY,
+
+    @SerialName("audit_query")
+    AUDIT_QUERY,
+
+    @SerialName("load_skill")
+    LOAD_SKILL,
+
+    @SerialName("gpio_read")
+    GPIO_READ,
+
+    @SerialName("gpio_set")
+    GPIO_SET,
+
+    @SerialName("gpio_mode")
+    GPIO_MODE,
+
+    @SerialName("apps_list")
+    APPS_LIST,
+
+    @SerialName("music_play")
+    MUSIC_PLAY,
+
+    @SerialName("music_get_format")
+    MUSIC_GET_FORMAT,
+
+    @SerialName("get_system_info")
+    GET_SYSTEM_INFO,
+
     @SerialName("ble_spam")
     BLE_SPAM,
+
+    @SerialName("ble_scan_targets")
+    BLE_SCAN_TARGETS,
+
+    @SerialName("ble_enumerate")
+    BLE_ENUMERATE,
+
+    @SerialName("ble_read_char")
+    BLE_READ_CHAR,
+
+    @SerialName("ble_write_char")
+    BLE_WRITE_CHAR,
+
+    @SerialName("ble_subscribe")
+    BLE_SUBSCRIBE,
 
     @SerialName("led_control")
     LED_CONTROL,
@@ -165,7 +281,48 @@ data class CommandArgs(
     @SerialName("search_scope")
     val searchScope: String? = null,
     @SerialName("photo_prompt")
-    val photoPrompt: String? = null
+    val photoPrompt: String? = null,
+
+    // Hardware CLI-wrapper args (GPIO, RFID, NFC/IR/SubGHz timing, IR raw)
+    val pin: String? = null,
+    val value: Int? = null,
+    val mode: Int? = null,
+    @SerialName("duty_cycle")
+    val dutyCycle: Double? = null,
+    @SerialName("key_type")
+    val keyType: String? = null,
+    @SerialName("key_data")
+    val keyData: String? = null,
+    val duration: Double? = null,
+
+    // BLE recon args (`address` reused from hardware transmit block — MAC or UUID target)
+    val uuid: String? = null,
+    val hex: Boolean? = null,
+    @SerialName("with_response")
+    val withResponse: Boolean? = null,
+
+    // Vuln triage + audit query + BadUSB helpers.
+    // Reuses across actions: `command` for BADUSB_GENERATE description fallback;
+    // `content` for BadUSB script bodies; `path` for BADUSB_DIFF existing script path.
+    val target: String? = null,
+    @SerialName("vuln_type")
+    val vulnType: String? = null,
+    val description: String? = null,
+    val evidence: String? = null,
+    val severity: String? = null,
+    val complexity: Int? = null,
+    @SerialName("vuln_id")
+    val vulnId: String? = null,
+    val reproduced: Boolean? = null,
+    val notes: String? = null,
+    val status: String? = null,
+    val limit: Int? = null,
+    @SerialName("risk_level")
+    val riskLevel: String? = null,
+    val platform: String? = null,
+    val filename: String? = null,
+    @SerialName("proposed_content")
+    val proposedContent: String? = null
 )
 
 /**
