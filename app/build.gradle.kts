@@ -180,4 +180,8 @@ tasks.register<VerifyExecuteCommandSchemaTask>("verifyExecuteCommandSchema") {
     description = "Fail if docs/execute_command_schema.json is out of sync with CommandAction."
     commandKtFile.set(commandKt)
     committedFile.set(committedSchema)
+    // Verify reads the same file generate writes. When both tasks run in one invocation,
+    // Gradle rightly demands an explicit ordering — verify checks the *committed* file,
+    // so it should always run before generate would rewrite it.
+    mustRunAfter("generateExecuteCommandSchema")
 }
