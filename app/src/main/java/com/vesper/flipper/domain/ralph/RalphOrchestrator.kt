@@ -4,9 +4,12 @@ import android.content.Context
 import android.util.Log
 import androidx.work.Constraints
 import androidx.work.Data
+import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import java.util.concurrent.TimeUnit
 import com.vesper.flipper.data.SettingsStore
 import com.vesper.flipper.data.database.CampaignDao
 import com.vesper.flipper.data.database.CampaignStateEntity
@@ -54,6 +57,7 @@ class RalphOrchestrator @Inject constructor(
             Log.i(TAG, "Refusing to start campaign — ralph feature flag is off")
             return null
         }
+        ensureCleanupScheduled()
         val now = System.currentTimeMillis()
         val id = UUID.randomUUID().toString()
         val state = CampaignStateEntity(
@@ -299,6 +303,22 @@ class RalphOrchestrator @Inject constructor(
 
         WorkManager.getInstance(context).enqueue(request)
         Log.i(TAG, "Enqueued ${phase.name} for campaign ${campaignId.take(8)}")
+    }
+
+    /**
+     * Idempotently schedule the periodic approval-cleanup worker. Uses
+     * KEEP so a subsequent startCampaign call won't reset the interval,
+     * and WorkManager persists the schedule across process death.
+     */
+    private fun ensureCleanupScheduled() {
+        val request = PeriodicWorkRequestBuilder<ApprovalCleanupWorker>(
+            1, TimeUnit.HOURS,
+        ).build()
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+            ApprovalCleanupWorker.UNIQUE_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
+            request,
+        )
     }
 
     private suspend fun markFailed(state: CampaignStateEntity, reason: String) {

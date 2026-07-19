@@ -6,6 +6,13 @@ import kotlinx.serialization.Serializable
 /**
  * The single command interface for AI agent interaction.
  * All Flipper operations go through this unified structure.
+ *
+ * [scope] is populated only by [com.vesper.flipper.domain.ralph.PhaseWorker] when
+ * a Ralph campaign issues an action; chat sessions leave it null. When set, the
+ * risk assessor enforces scope BEFORE anything else — an out-of-scope target
+ * gets a BLOCKED verdict regardless of the action's normal risk tier. The model
+ * never sees this field: it's not in the tool schema, and PhaseWorker attaches
+ * it after parsing the tool call.
  */
 @Serializable
 data class ExecuteCommand(
@@ -13,7 +20,26 @@ data class ExecuteCommand(
     val args: CommandArgs,
     val justification: String,
     @SerialName("expected_effect")
-    val expectedEffect: String
+    val expectedEffect: String,
+    val scope: Scope? = null
+)
+
+/**
+ * The scope guardrail a Ralph campaign attaches to every tool call it issues.
+ * Comparison is case-insensitive substring for [inScope] (targets are things like
+ * BLE MACs, IPs, hostnames — a scan result might normalise them slightly) and
+ * exact-match (case-insensitive) for [outOfScope] once we've decided a target is
+ * blocked. If [inScope] is empty, no positive check is performed — but if
+ * [outOfScope] contains a hit, the command is still blocked.
+ */
+@Serializable
+data class Scope(
+    @SerialName("campaign_id")
+    val campaignId: String,
+    @SerialName("in_scope")
+    val inScope: List<String> = emptyList(),
+    @SerialName("out_of_scope")
+    val outOfScope: List<String> = emptyList()
 )
 
 @Serializable

@@ -155,6 +155,32 @@ class SettingsStore @Inject constructor(
         }
     }
 
+    // Per-phase caps — belt-and-suspenders limits so a runaway phase can't chew
+    // through the whole rate budget or the phone's battery. Defaults come from
+    // MERGE_PLAN §4.3 guardrail 7.
+    private val RALPH_MAX_TOOL_CALLS_PER_PHASE = intPreferencesKey("ralph_max_tool_calls_per_phase")
+    private val RALPH_MAX_PHASE_WALLCLOCK_MINUTES = intPreferencesKey("ralph_max_phase_wallclock_minutes")
+
+    val ralphMaxToolCallsPerPhase: Flow<Int> = context.dataStore.data.map { preferences ->
+        preferences[RALPH_MAX_TOOL_CALLS_PER_PHASE] ?: DEFAULT_RALPH_TOOL_CALL_CAP
+    }
+
+    suspend fun setRalphMaxToolCallsPerPhase(value: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[RALPH_MAX_TOOL_CALLS_PER_PHASE] = value.coerceIn(1, 200)
+        }
+    }
+
+    val ralphMaxPhaseWallclockMinutes: Flow<Int> = context.dataStore.data.map { preferences ->
+        preferences[RALPH_MAX_PHASE_WALLCLOCK_MINUTES] ?: DEFAULT_RALPH_PHASE_WALLCLOCK_MINUTES
+    }
+
+    suspend fun setRalphMaxPhaseWallclockMinutes(value: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[RALPH_MAX_PHASE_WALLCLOCK_MINUTES] = value.coerceIn(1, 240)
+        }
+    }
+
     // Haptic feedback
     private val HAPTIC_FEEDBACK = booleanPreferencesKey("haptic_feedback")
 
@@ -323,6 +349,10 @@ class SettingsStore @Inject constructor(
         const val DEFAULT_AI_MAX_ITERATIONS = 10
         const val MIN_AI_MAX_ITERATIONS = 4
         const val MAX_AI_MAX_ITERATIONS = 20
+
+        // Ralph autonomous-campaign per-phase caps. See MERGE_PLAN §4.3 guardrail 7.
+        const val DEFAULT_RALPH_TOOL_CALL_CAP = 30
+        const val DEFAULT_RALPH_PHASE_WALLCLOCK_MINUTES = 15
 
         // Used when fetching live catalog fails (offline/rate-limited).
         val FALLBACK_MODELS = listOf(

@@ -30,7 +30,8 @@ class ReportWorker @AssistedInject constructor(
     campaignDao: CampaignDao,
     skillRegistry: SkillRegistry,
     orchestrator: RalphOrchestrator,
-) : PhaseWorker(appContext, workerParams, commandExecutor, openRouter, campaignDao, skillRegistry, orchestrator) {
+    settingsStore: com.vesper.flipper.data.SettingsStore,
+) : PhaseWorker(appContext, workerParams, commandExecutor, openRouter, campaignDao, skillRegistry, orchestrator, settingsStore) {
 
     override val phaseId: CampaignPhase = CampaignPhase.REPORT
     override val skillId: String = "pentest-report"

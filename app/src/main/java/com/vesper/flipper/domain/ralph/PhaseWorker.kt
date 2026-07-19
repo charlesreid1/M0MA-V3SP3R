@@ -7,6 +7,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.vesper.flipper.ai.ChatCompletionResult
 import com.vesper.flipper.ai.OpenRouterClient
+import com.vesper.flipper.data.SettingsStore
 import com.vesper.flipper.data.database.CampaignDao
 import com.vesper.flipper.data.database.CampaignFindingEntity
 import com.vesper.flipper.data.database.CampaignStateEntity
@@ -17,9 +18,12 @@ import com.vesper.flipper.domain.model.CommandResult
 import com.vesper.flipper.domain.model.ExecuteCommand
 import com.vesper.flipper.domain.model.MessageRole
 import com.vesper.flipper.domain.model.PhaseOutcome
+import com.vesper.flipper.domain.model.Scope
 import com.vesper.flipper.domain.model.ToolCall
 import com.vesper.flipper.domain.model.ToolResult
 import com.vesper.flipper.domain.service.SkillRegistry
+import kotlinx.coroutines.flow.first
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import java.util.UUID
@@ -46,9 +50,13 @@ import java.util.UUID
  *     `sessionId = campaignId`. Chunk C.2's UI can filter the audit screen by
  *     campaign id + phase.
  *
- * The worker is bounded: it loops up to [MAX_TOOL_CALLS_PER_INVOCATION] tool
- * calls per invocation, then returns [PhaseOutcome.Paused] with reason
- * "tool call cap". Chunk C.3 tightens this with configurable caps.
+ * The worker is bounded by two caps from SettingsStore, both configurable per
+ * user preference:
+ *   - `ralphMaxToolCallsPerPhase` (default 30) — loop exits with
+ *     PhaseOutcome.Paused("tool call cap N hit") when reached.
+ *   - `ralphMaxPhaseWallclockMinutes` (default 15) — loop exits with
+ *     PhaseOutcome.Paused("wall-clock cap Nm hit") when exceeded, checked
+ *     between iterations rather than pre-empting an in-flight call.
  */
 abstract class PhaseWorker(
     appContext: Context,
@@ -58,6 +66,7 @@ abstract class PhaseWorker(
     protected val campaignDao: CampaignDao,
     protected val skillRegistry: SkillRegistry,
     protected val orchestrator: RalphOrchestrator,
+    protected val settingsStore: SettingsStore,
 ) : CoroutineWorker(appContext, workerParams) {
 
     abstract val phaseId: CampaignPhase
@@ -96,12 +105,20 @@ abstract class PhaseWorker(
             Log.w(TAG, "Skill '$skillId' not found — proceeding without phase guide")
         }
         val priorFindings = readPriorFindings(state.id)
+        val campaignScope = buildCampaignScope(state)
 
         val messages = buildInitialConversation(state, skillBody, priorFindings)
         var findingsWrittenThisRun = 0
         var toolCallsThisRun = 0
 
-        while (toolCallsThisRun < MAX_TOOL_CALLS_PER_INVOCATION) {
+        val toolCallCap = settingsStore.ralphMaxToolCallsPerPhase.first()
+        val wallclockMinutes = settingsStore.ralphMaxPhaseWallclockMinutes.first()
+        val wallclockDeadline = System.currentTimeMillis() + wallclockMinutes * 60_000L
+
+        while (toolCallsThisRun < toolCallCap) {
+            if (System.currentTimeMillis() > wallclockDeadline) {
+                return PhaseOutcome.Paused("wall-clock cap (${wallclockMinutes}m) hit")
+            }
             val chat = openRouter.chat(messages, sessionId = state.id)
             when (chat) {
                 is ChatCompletionResult.Error ->
@@ -134,10 +151,14 @@ abstract class PhaseWorker(
 
                     for (call in toolCalls) {
                         toolCallsThisRun++
-                        val command = parseCommand(call) ?: run {
+                        val parsed = parseCommand(call) ?: run {
                             nextMessages += toolResultMessage(call.id, malformedCommandJson())
                             continue
                         }
+                        // The model doesn't see the scope field on ExecuteCommand — the worker
+                        // attaches it here so RiskAssessor can enforce the campaign's authorized
+                        // target list on this call.
+                        val command = parsed.copy(scope = campaignScope)
                         val result = commandExecutor.execute(command, sessionId = state.id)
                         if (result.requiresConfirmation && result.pendingApprovalId != null) {
                             return PhaseOutcome.NeedsApproval(result.pendingApprovalId)
@@ -157,7 +178,7 @@ abstract class PhaseWorker(
             }
         }
 
-        return PhaseOutcome.Paused("tool call cap ($MAX_TOOL_CALLS_PER_INVOCATION) hit")
+        return PhaseOutcome.Paused("tool call cap ($toolCallCap) hit")
     }
 
     // ─── Conversation construction ────────────────────────────────────────────
@@ -301,6 +322,26 @@ abstract class PhaseWorker(
         null
     }
 
+    /**
+     * Build the authoritative [Scope] this campaign's phase workers attach to every
+     * tool call. The scope lists come out of the campaign_state JSON blobs that
+     * NewCampaignScreen writes at campaign creation.
+     */
+    private fun buildCampaignScope(state: CampaignStateEntity): Scope {
+        val listSerializer = ListSerializer(String.serializer())
+        val inScope = runCatching {
+            json.decodeFromString(listSerializer, state.scopeTargetsJson)
+        }.getOrDefault(emptyList())
+        val outOfScope = runCatching {
+            json.decodeFromString(listSerializer, state.outOfScopeJson)
+        }.getOrDefault(emptyList())
+        return Scope(
+            campaignId = state.id,
+            inScope = inScope,
+            outOfScope = outOfScope,
+        )
+    }
+
     private fun phaseSummaryJson(text: String): String =
         "{\"kind\":\"phase_summary\",\"text\":" +
             json.encodeToString(String.serializer(), text) +
@@ -316,7 +357,6 @@ abstract class PhaseWorker(
 
     companion object {
         const val KEY_CAMPAIGN_ID = "campaign_id"
-        const val MAX_TOOL_CALLS_PER_INVOCATION = 30
         private const val TAG = "PhaseWorker"
     }
 }
