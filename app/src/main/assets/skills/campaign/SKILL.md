@@ -86,7 +86,7 @@ Every campaign follows this progression. The target protocol doesn't matter — 
 - CALL `rfid_emulate(path=…)` — emulate cloned RFID tags (⚠️ MEDIUM)
 - CALL `rfid_write(key_type=…, key_data=…)` — clone RFID tags (⚠️ HIGH — approval required)
 - CALL `badusb_execute(path=…)` — HID injection (⚠️ HIGH — approval required)
-- LOAD skills as needed: `load_skill(command="ble-exploitation")`, `load_skill(command="credential-attack")`
+- LOAD skills as needed: `load_skill(command="ble-exploitation")`, `load_skill(command="payload-authoring")`
 
 **Risk level:** MEDIUM–HIGH. Every action in this phase can cause physical-world effects. You MUST:
 1. Explain exactly what you're about to do (via `justification`)

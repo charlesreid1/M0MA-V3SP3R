@@ -44,8 +44,8 @@ class ResearchWorker @AssistedInject constructor(
           - Prior findings from RECON are attached at the end of this system message.
             Use them as your worklist; produce one research profile per target.
           - When appropriate, LOAD a supporting skill via load_skill (e.g., protocol-analysis
-            when you're looking at a proprietary protocol, credential-attack for services with
-            login endpoints).
+            when you're looking at a proprietary protocol, ble-exploitation when the target
+            exposes a GATT server worth mapping).
           - Produce a text summary listing each target with a prioritized attack surface
             assessment. That ends the phase.
     """.trimIndent()
