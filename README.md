@@ -62,7 +62,7 @@ Every action goes through `CommandExecutor` and is risk-classified by `RiskAsses
 
 ### Audit and skills
 - **Audit log** — every command, result, and approval decision is logged to Room (`AuditService`). Queryable from the app or via the `audit_query` tool action (limit + risk level filter).
-- **Loadable skills** — 8 methodology playbooks bundled under `app/src/main/assets/skills/` (`ble-exploitation`, `campaign`, `credential-attack`, `payload-authoring`, `pentest-report`, `protocol-analysis`, `signal-analysis`, `wifi-attack`). The model pulls a skill on demand via `load_skill`; keeps the system prompt small.
+- **Loadable skills** — 7 methodology playbooks bundled under `app/src/main/assets/skills/` (`ble-exploitation`, `campaign`, `payload-authoring`, `pentest-report`, `protocol-analysis`, `signal-analysis`, `wifi-attack`). The model pulls a skill on demand via `load_skill`; keeps the system prompt small.
 
 ### Ops Center
 Reads live pipeline health from the BLE layer:
