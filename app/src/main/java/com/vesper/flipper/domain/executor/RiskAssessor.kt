@@ -64,7 +64,8 @@ class RiskAssessor @Inject constructor(
             CommandAction.VULN_CLASSIFY,
             CommandAction.AUDIT_QUERY,
             CommandAction.BADUSB_VALIDATE,
-            CommandAction.BADUSB_DIFF -> {
+            CommandAction.BADUSB_DIFF,
+            CommandAction.LOAD_SKILL -> {
                 RiskAssessment(
                     level = RiskLevel.LOW,
                     reason = "Read-only operation",

@@ -146,6 +146,9 @@ enum class CommandAction {
     @SerialName("audit_query")
     AUDIT_QUERY,
 
+    @SerialName("load_skill")
+    LOAD_SKILL,
+
     @SerialName("gpio_read")
     GPIO_READ,
 

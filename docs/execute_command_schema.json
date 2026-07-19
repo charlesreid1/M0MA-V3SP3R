@@ -49,6 +49,7 @@
         "vuln_list",
         "vuln_classify",
         "audit_query",
+        "load_skill",
         "gpio_read",
         "gpio_set",
         "gpio_mode",
@@ -77,7 +78,7 @@
       "properties": {
         "command": {
           "type": "string",
-          "description": "Free-form command string. For execute_cli: the CLI command. For search_faphub/github_search/search_resources: the query. For install_faphub_app: the app id or name. For forge_payload: fallback natural-language prompt. For launch_app: fallback app name. For run_runbook: fallback runbook id. For browse_repo: fallback repo id."
+          "description": "Free-form command string. For execute_cli: the CLI command. For search_faphub/github_search/search_resources: the query. For install_faphub_app: the app id or name. For forge_payload: fallback natural-language prompt. For launch_app: fallback app name. For run_runbook: fallback runbook id. For browse_repo: fallback repo id. For load_skill: the skill id."
         },
         "path": {
           "type": "string",
@@ -612,6 +613,14 @@
       },
       "justification": "Operator wants an authored BadUSB script for a demo",
       "expected_effect": "Return a validated DuckyScript payload; no device effect"
+    },
+    {
+      "action": "load_skill",
+      "args": {
+        "command": "ble-exploitation"
+      },
+      "justification": "Model needs BLE GATT methodology guidance before crafting a write payload",
+      "expected_effect": "Return the ble-exploitation SKILL.md content as tool output"
     }
   ]
 }

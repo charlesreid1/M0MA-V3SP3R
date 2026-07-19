@@ -11,6 +11,7 @@ import com.vesper.flipper.domain.model.*
 import com.vesper.flipper.domain.service.AuditService
 import com.vesper.flipper.domain.service.DiffService
 import com.vesper.flipper.domain.service.PermissionService
+import com.vesper.flipper.domain.service.SkillRegistry
 import com.vesper.flipper.domain.service.VulnTriageService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -45,7 +46,8 @@ class CommandExecutor @Inject constructor(
     private val settingsStore: SettingsStore,
     private val bleRecon: BleReconService,
     private val vulnTriage: VulnTriageService,
-    private val payloadEngine: PayloadEngine
+    private val payloadEngine: PayloadEngine,
+    private val skillRegistry: SkillRegistry
 ) {
 
     private val pendingApprovals = ConcurrentHashMap<String, PendingApproval>()
@@ -969,6 +971,22 @@ class CommandExecutor @Inject constructor(
                     content = diff.unifiedDiff,
                     diff = diff,
                     message = "Diff for $path: +${diff.linesAdded} / -${diff.linesRemoved}"
+                )
+            }
+
+            CommandAction.LOAD_SKILL -> {
+                val id = command.args.command?.trim()?.takeIf { it.isNotEmpty() }
+                    ?: throw IllegalArgumentException("skill id required (use `command`)")
+                val content = skillRegistry.load(id)
+                    ?: run {
+                        val available = skillRegistry.list().joinToString(", ") { it.id }
+                        throw IllegalArgumentException(
+                            "Unknown skill '$id'. Available: $available"
+                        )
+                    }
+                CommandResultData(
+                    content = content,
+                    message = "Loaded skill: $id (${content.length} chars)"
                 )
             }
 

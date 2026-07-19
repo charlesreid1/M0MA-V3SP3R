@@ -74,6 +74,7 @@ object ExecuteCommandSchemaGenerator {
         "vuln_list",
         "vuln_classify",
         "audit_query",
+        "load_skill",
         "gpio_read",
         "gpio_set",
         "gpio_mode",
@@ -105,7 +106,7 @@ object ExecuteCommandSchemaGenerator {
 
     private val ARGS: List<ArgSpec> = listOf(
         ArgSpec("command", "string",
-            "Free-form command string. For execute_cli: the CLI command. For search_faphub/github_search/search_resources: the query. For install_faphub_app: the app id or name. For forge_payload: fallback natural-language prompt. For launch_app: fallback app name. For run_runbook: fallback runbook id. For browse_repo: fallback repo id."),
+            "Free-form command string. For execute_cli: the CLI command. For search_faphub/github_search/search_resources: the query. For install_faphub_app: the app id or name. For forge_payload: fallback natural-language prompt. For launch_app: fallback app name. For run_runbook: fallback runbook id. For browse_repo: fallback repo id. For load_skill: the skill id."),
         ArgSpec("path", "string",
             "File or directory path on Flipper (e.g., /ext/subghz/garage.sub). Also the source path for move/copy/rename, target path for push_artifact/download_resource, and signal file for subghz_transmit/ir_transmit/nfc_emulate/rfid_emulate/ibutton_emulate/badusb_execute."),
         ArgSpec("destination_path", "string", "Destination path for move/copy operations"),
@@ -322,6 +323,9 @@ object ExecuteCommandSchemaGenerator {
         ),
             "Operator wants an authored BadUSB script for a demo",
             "Return a validated DuckyScript payload; no device effect"),
+        Example("load_skill", mapOf("command" to s("ble-exploitation")),
+            "Model needs BLE GATT methodology guidance before crafting a write payload",
+            "Return the ble-exploitation SKILL.md content as tool output"),
     )
 
     // ─── Public entry points ──────────────────────────────────────────────────

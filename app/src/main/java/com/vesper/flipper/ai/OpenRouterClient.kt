@@ -3,6 +3,7 @@ package com.vesper.flipper.ai
 import android.util.Log
 import com.vesper.flipper.data.SettingsStore
 import com.vesper.flipper.domain.model.*
+import com.vesper.flipper.domain.service.SkillRegistry
 import com.vesper.flipper.security.InputValidator
 import com.vesper.flipper.security.RateLimiter
 import kotlinx.coroutines.Dispatchers
@@ -34,7 +35,8 @@ import javax.inject.Singleton
  */
 @Singleton
 class OpenRouterClient @Inject constructor(
-    private val settingsStore: SettingsStore
+    private val settingsStore: SettingsStore,
+    private val skillRegistry: SkillRegistry,
 ) {
 
     private val json = Json {
@@ -63,8 +65,15 @@ class OpenRouterClient @Inject constructor(
         const val BACKOFF_MULTIPLIER = 2.0
     }
 
-    // Use centralized prompt system for consistency and maintainability
-    private val baseSystemPrompt = VesperPrompts.SYSTEM_PROMPT
+    // Use centralized prompt system for consistency and maintainability.
+    // The skill catalog is enumerated at first read from bundled assets and substituted into
+    // the SYSTEM_PROMPT placeholder — new skills bundled in a future build appear automatically.
+    private val baseSystemPrompt: String by lazy {
+        val catalog = skillRegistry.list()
+            .sortedBy { it.id }
+            .joinToString("\n") { "  - `${it.id}` — ${it.description}" }
+        VesperPrompts.withSkillCatalog(catalog)
+    }
 
     /**
      * Send a chat completion request with tool calling.
@@ -1239,6 +1248,9 @@ class OpenRouterClient @Inject constructor(
                 if (args.path.isNullOrBlank()) "path" else null,
                 if (args.proposedContent.isNullOrBlank() && args.content.isNullOrBlank()) "proposed_content" else null
             )
+            CommandAction.LOAD_SKILL -> listOfNotNull(
+                if (args.command.isNullOrBlank()) "command" else null
+            )
         }
     }
 
@@ -1362,6 +1374,8 @@ class OpenRouterClient @Inject constructor(
                 """{"action":"badusb_write","args":{"filename":"demo.txt","content":"DELAY 500\nGUI r\n..."}}"""
             CommandAction.BADUSB_DIFF ->
                 """{"action":"badusb_diff","args":{"path":"/ext/badusb/demo.txt","proposed_content":"DELAY 500\nGUI r\n..."}}"""
+            CommandAction.LOAD_SKILL ->
+                """{"action":"load_skill","args":{"command":"ble-exploitation"}}"""
         }
     }
 
