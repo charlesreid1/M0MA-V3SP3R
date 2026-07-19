@@ -2,6 +2,7 @@ package com.vesper.flipper.di
 
 import android.content.Context
 import com.vesper.flipper.data.database.AuditDao
+import com.vesper.flipper.data.database.CampaignDao
 import com.vesper.flipper.data.database.ChatDao
 import com.vesper.flipper.data.database.VesperDatabase
 import com.vesper.flipper.data.database.VulnDao
@@ -44,6 +45,12 @@ object AppModule {
     @Singleton
     fun provideVulnDao(database: VesperDatabase): VulnDao {
         return database.vulnDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideCampaignDao(database: VesperDatabase): CampaignDao {
+        return database.campaignDao()
     }
 
     // ==================== Device Tracker Database ====================

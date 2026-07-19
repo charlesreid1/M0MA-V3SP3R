@@ -105,6 +105,20 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
+        <!-- Disable the default WorkManager initializer so Hilt's HiltWorkerFactory
+             is used to construct workers (needed for @HiltWorker injection into
+             Ralph campaign phase workers). -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
+
     </application>
 
 </manifest>

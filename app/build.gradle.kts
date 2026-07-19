@@ -157,6 +157,11 @@ dependencies {
 
     // Diff utils
     implementation("io.github.java-diff-utils:java-diff-utils:4.12")
+
+    // WorkManager (Ralph autonomous campaigns)
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
+    implementation("androidx.hilt:hilt-work:1.2.0")
+    ksp("androidx.hilt:hilt-compiler:1.2.0")
 }
 
 // ─── execute_command JSON schema generation ────────────────────────────────
