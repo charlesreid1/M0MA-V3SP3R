@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -46,6 +47,7 @@ import com.vesper.flipper.ui.viewmodel.CampaignDetailViewModel
 @Composable
 fun CampaignDetailScreen(
     onBack: () -> Unit,
+    onNavigateToAudit: () -> Unit = {},
     viewModel: CampaignDetailViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -58,6 +60,15 @@ fun CampaignDetailScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onNavigateToAudit) {
+                        Icon(
+                            Icons.Filled.History,
+                            contentDescription = "Audit log",
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

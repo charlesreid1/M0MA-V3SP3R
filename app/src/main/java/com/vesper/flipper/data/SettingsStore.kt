@@ -140,13 +140,11 @@ class SettingsStore @Inject constructor(
         }
     }
 
-    // Ralph autonomous campaigns feature flag. Off by default until the UI
-    // approval flow (Chunk C.2) lands — the workers can be exercised in isolation
-    // by flipping this from tests or the debug build.
+    // Ralph autonomous campaigns feature flag. On by default.
     private val RALPH_ENABLED = booleanPreferencesKey("ralph_enabled")
 
     val ralphEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
-        preferences[RALPH_ENABLED] ?: false
+        preferences[RALPH_ENABLED] ?: true
     }
 
     suspend fun setRalphEnabled(enabled: Boolean) {
