@@ -8,6 +8,10 @@ import com.vesper.flipper.data.database.CampaignDao
 import com.vesper.flipper.data.database.CampaignStateEntity
 import com.vesper.flipper.domain.executor.CommandExecutor
 import com.vesper.flipper.domain.model.CampaignPhase
+import com.vesper.flipper.domain.model.CommandAction
+import com.vesper.flipper.domain.model.CommandArgs
+import com.vesper.flipper.domain.model.ExecuteCommand
+import com.vesper.flipper.domain.model.PhaseOutcome
 import com.vesper.flipper.domain.service.SkillRegistry
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -36,6 +40,30 @@ class ReconWorker @AssistedInject constructor(
 
     override val phaseId: CampaignPhase = CampaignPhase.RECON
     override val skillId: String = "campaign"
+
+    override suspend fun runPhase(state: CampaignStateEntity): PhaseOutcome {
+        // Pre-flight: verify the Flipper is reachable before starting the LLM loop.
+        // Without this, the campaign silently cycles through all phases producing
+        // boilerplate "what do you need" responses because every tool call fails.
+        val healthCheck = commandExecutor.execute(
+            ExecuteCommand(
+                action = CommandAction.GET_DEVICE_INFO,
+                args = CommandArgs(),
+                justification = "Pre-flight connectivity check",
+                expectedEffect = "Verify Flipper Zero is connected and responding",
+            ),
+            sessionId = state.id,
+        )
+        if (!healthCheck.success) {
+            val detail = healthCheck.error
+                ?: healthCheck.data?.message
+                ?: "no response from device"
+            return PhaseOutcome.Failed(
+                "Flipper not reachable — connect your Flipper Zero over BLE and retry. ($detail)"
+            )
+        }
+        return super.runPhase(state)
+    }
 
     override fun phaseSystemPrompt(state: CampaignStateEntity): String = """
         You are the RECON phase of a Ralph campaign. Cast a wide net across every RF modality Vesper

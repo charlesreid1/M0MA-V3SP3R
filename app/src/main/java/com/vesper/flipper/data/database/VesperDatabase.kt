@@ -245,6 +245,9 @@ interface CampaignDao {
     @Query("SELECT * FROM campaign_state WHERE id = :id LIMIT 1")
     suspend fun getState(id: String): CampaignStateEntity?
 
+    @Query("SELECT * FROM campaign_state WHERE id = :id LIMIT 1")
+    fun observeState(id: String): Flow<CampaignStateEntity?>
+
     @Query("SELECT * FROM campaign_state ORDER BY updatedAt DESC")
     fun observeAll(): Flow<List<CampaignStateEntity>>
 
@@ -267,6 +270,12 @@ interface CampaignDao {
             "ORDER BY createdAt ASC"
     )
     suspend fun getFindingsForCampaign(campaignId: String): List<CampaignFindingEntity>
+
+    @Query(
+        "SELECT * FROM campaign_finding WHERE campaignId = :campaignId " +
+            "ORDER BY createdAt ASC"
+    )
+    fun observeFindingsForCampaign(campaignId: String): Flow<List<CampaignFindingEntity>>
 
     @Query(
         "SELECT * FROM campaign_finding WHERE campaignId = :campaignId " +

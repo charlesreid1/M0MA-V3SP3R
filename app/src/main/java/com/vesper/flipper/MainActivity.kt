@@ -1,6 +1,7 @@
 package com.vesper.flipper
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -74,6 +75,14 @@ class MainActivity : ComponentActivity() {
                 VesperApp()
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        // Forward the new intent so Compose's LaunchedEffect picks up the deep link.
+        // Setting the activity's intent is what triggers recomposition of the
+        // LaunchedEffect key in VesperApp.
+        this.intent = intent
     }
 
     private fun checkAndRequestPermissions() {
@@ -256,7 +265,10 @@ fun VesperApp() {
                         }
                     ),
                 ) {
-                    CampaignDetailScreen(onBack = { navController.popBackStack() })
+                    CampaignDetailScreen(
+                        onBack = { navController.popBackStack() },
+                        onNavigateToAudit = { navController.navigate(Screen.Audit.route) },
+                    )
                 }
                 composable(Screen.ApprovalInbox.route) {
                     ApprovalInboxScreen(onBack = { navController.popBackStack() })
