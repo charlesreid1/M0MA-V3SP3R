@@ -51,6 +51,15 @@ mentra-bridge/node_modules/
 mentra-bridge/dist/
 mentra-bridge/.env
 
+# Python (mcp-server)
+mcp-server/.venv/
+mcp-server/dist/
+mcp-server/build/
+mcp-server/*.egg-info/
+mcp-server/.pytest_cache/
+mcp-server/.ruff_cache/
+mcp-server/**/__pycache__/
+
 # Environment / secrets
 .env
 .env.local
