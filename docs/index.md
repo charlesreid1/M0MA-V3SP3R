@@ -4,6 +4,29 @@
 > topic id here is a valid argument to `read_doc`. Groups follow the
 > layout in `plan-knowledge-expand.md`.
 
+## Quick nav — "I want to know about…"
+
+- **What a Flipper Zero is:** `flipper-hardware`.
+- **The four firmwares:** `firmware-families`, `firmware-momentum` ⭐.
+- **How the app picks a routing profile:** `firmware-compatibility-profile`.
+- **SubGHz — the radio, protocols, `.sub` format:** `subghz-overview`,
+  `subghz-protocols`, `signal-formats-sub`.
+- **NFC — MIFARE and beyond:** `nfc-overview`, `signal-formats-nfc`.
+- **IR — remote captures, universal remote:** `ir-overview`,
+  `signal-formats-ir`.
+- **LF RFID — HID Prox, T5577 blanks:** `rfid-lf-overview`.
+- **iButton — Dallas, CYFRAL, Metakom:** `ibutton-overview`.
+- **The GPIO header and its add-ons:** `flipper-gpio-pinout`,
+  `flipper-gpio-extensions`.
+- **The Marauder WiFi devboard:** `marauder-overview` ⭐,
+  `marauder-wiring`, `marauder-commands`.
+- **Writing apps or firmware:** `flipper-fap-apps`,
+  `flipper-firmware-build`, `flipper-js-runner`.
+- **Legal / safety:** `legal-and-safety`.
+- **Methodology playbooks:** `skills-*` (see Group F).
+- **The Vesper Android app itself:** `architecture`, `campaigns`,
+  `labs`, `mcp`.
+
 ## Group A — Flipper Zero hardware & platform
 
 - `flipper-hardware` — MCU, radios, sensors, storage, buttons, power.

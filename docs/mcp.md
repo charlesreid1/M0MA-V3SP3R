@@ -129,3 +129,9 @@ Resources:
   `logging.getLogger(__name__)`, never `print`.
 - **`address already in use`** on sse / streamable-http — an earlier
   run of the server is still bound; `lsof -ti :<port> | xargs kill`.
+
+## See also
+
+- `index.md` — the corpus this server exposes.
+- `architecture.md` — where the MCP fits in the Vesper transport pipeline.
+- `app_build_process.md` — the Android side that consumes the same schema.

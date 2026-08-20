@@ -309,3 +309,14 @@ The one thing to be aware of when copying: **tool results are where sensitive de
 - **OkHttp** — Network requests
 - **Kotlinx Serialization** — JSON parsing
 - **java-diff-utils** — Diff computation
+
+## See also
+
+- `index.md` — corpus table of contents.
+- `flipper-hardware.md` — the physical device this architecture drives.
+- `firmware-compatibility-profile.md` — how the transport layer picks a routing profile.
+- `firmware-families.md` — the four firmwares the profile table covers.
+- `campaigns.md` — Ralph autonomous-campaign UX layered on top.
+- `labs.md` — Alchemy / Payload Lab UX.
+- `mcp.md` — the MCP server that reads this corpus.
+- `legal-and-safety.md` — the enforcement backdrop for `RiskAssessor`.

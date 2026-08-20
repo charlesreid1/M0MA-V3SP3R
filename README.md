@@ -292,7 +292,12 @@ Ralph is off by default. Settings > **Experimental** > **Ralph autonomous campai
 
 ## Documentation
 
+- **[`docs/index.md`](docs/index.md)** — corpus table of contents. Start here for the Flipper Zero + Momentum + Marauder knowledge base the MCP server exposes.
 - [`docs/architecture.md`](docs/architecture.md) — full architecture, data-flow boundary, risk classification details, per-feature backing services.
+- [`docs/flipper-hardware.md`](docs/flipper-hardware.md) — Flipper Zero platform overview (MCU, radios, storage, power). New to the device? Start here.
+- [`docs/firmware-families.md`](docs/firmware-families.md) — Official / Momentum / Unleashed / RogueMaster.
+- [`docs/marauder-overview.md`](docs/marauder-overview.md) — the WiFi devboard companion.
+- [`docs/legal-and-safety.md`](docs/legal-and-safety.md) — practical map of the RF / access-control / computer-fraud tripwires.
 - [`docs/execute_command_schema.json`](docs/execute_command_schema.json) — auto-generated command schema.
 - [`mentra-bridge/README.md`](mentra-bridge/README.md) — smart-glasses bridge wire protocol and setup.
 - [`MERGE_PLAN_FlipperAgent_into_M0MA-V3SP3R.md`](MERGE_PLAN_FlipperAgent_into_M0MA-V3SP3R.md) — the chunk-by-chunk plan used to merge FlipperAgent into this fork.
