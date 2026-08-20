@@ -174,3 +174,10 @@ Use the emulator for the inner loop (UI changes, chat + tool-calling flows, data
 - **Sync/build broken after upgrade**: **File → Sync Project with Gradle Files**, then **Build → Clean Project → Rebuild Project**. If still broken, close Android Studio, delete `.gradle/` at the repo root, and reopen.
 - **JitPack resolution failing**: `usb-serial-for-android` is served from JitPack; check network / proxy access to `jitpack.io`.
 - **Schema verify fails in CI**: run `./gradlew :app:generateExecuteCommandSchema` locally and commit the updated `docs/execute_command_schema.json`.
+
+## See also
+
+- `architecture.md` — what the app does once it builds.
+- `flipper-firmware-build.md` — building Flipper firmware (separate toolchain).
+- `mcp.md` — running the MCP server the Android app links against.
+- `index.md` — corpus table of contents.

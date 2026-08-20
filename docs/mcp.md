@@ -1,10 +1,17 @@
 # MCP setup — connecting a client to `vesper-mcp`
 
-`mcp-server/` ships a FastMCP server that exposes the M0MA-V3SP3R runbook
-corpus and the Flipper Zero `execute_command` schema over the Model
-Context Protocol. Three transports are supported: `stdio` (default,
-what Claude Desktop / opencode use), `sse` (HTTP + Server-Sent Events),
-and `streamable-http` (HTTP + streaming JSON-RPC).
+`mcp-server/` ships a FastMCP server that exposes the M0MA-V3SP3R
+knowledge corpus and the Flipper Zero `execute_command` schema over
+the Model Context Protocol. Three transports are supported: `stdio`
+(default, what Claude Desktop / opencode use), `sse` (HTTP +
+Server-Sent Events), and `streamable-http` (HTTP + streaming
+JSON-RPC).
+
+**Corpus scope:** 41 topics covering the Flipper Zero platform,
+firmware families (Official / Momentum / Unleashed / RogueMaster),
+RF subsystems, the WiFi Marauder devboard, app and firmware
+development, legal/safety, and seven methodology playbooks. See
+`index.md` for the topic-id list.
 
 Before any of the snippets below work, bootstrap the venv:
 
@@ -105,8 +112,9 @@ implementations (H4CKRF-6H05T, P1N3NUT5, PHR34CKER5).
 
 Tools (`tools/list` returns exactly these five):
 
-- `list_topics()` — enumerate corpus docs.
-- `read_doc(topic: str)` — return one doc body.
+- `list_topics()` — enumerate corpus docs. Returns `[{topic, path, bytes}, ...]`.
+- `read_doc(topic: str)` — return one doc body. Case-insensitive;
+  underscore/hyphen interchangeable.
 - `search_docs(query: str, limit: int = 20)` — substring search.
 - `list_actions()` — every `execute_command` action id (~60).
 - `describe_action(action: str)` — the schema's args block for one action.
@@ -116,6 +124,29 @@ Resources:
 - `vesper://docs/index` (`application/json`) — list of topic ids.
 - `vesper://docs/{topic}` (`text/markdown`) — doc body.
 - `vesper://schema/actions` (`application/json`) — action catalog.
+
+### Topic id conventions
+
+The knowledge server discovers `docs/**/*.md` recursively plus the
+top-level `README.md`. Topic ids are derived by joining the path
+under `docs/` with hyphens, then lowercasing:
+
+- `docs/flipper-hardware.md` → `flipper-hardware`
+- `docs/skills/wifi-attack.md` → `skills-wifi-attack`
+- `docs/skills/README.md` → `skills-readme`
+- `README.md` (repo root) → `readme`
+
+Underscores in filenames are folded to hyphens
+(`app_build_process.md` → `app-build-process`); underscore and hyphen
+are interchangeable in `read_doc`.
+
+### `docs/skills/` — synced playbooks
+
+The seven `docs/skills/*.md` files are auto-generated from
+`app/src/main/assets/skills/<name>/SKILL.md`. The Android
+`SkillRegistry` loads the originals; the MCP server serves the
+copies. Regenerate with `python mcp-server/scripts/sync_skills.py`;
+CI runs `--check` to catch drift.
 
 ## Troubleshooting
 
@@ -129,3 +160,9 @@ Resources:
   `logging.getLogger(__name__)`, never `print`.
 - **`address already in use`** on sse / streamable-http — an earlier
   run of the server is still bound; `lsof -ti :<port> | xargs kill`.
+
+## See also
+
+- `index.md` — the corpus this server exposes.
+- `architecture.md` — where the MCP fits in the Vesper transport pipeline.
+- `app_build_process.md` — the Android side that consumes the same schema.

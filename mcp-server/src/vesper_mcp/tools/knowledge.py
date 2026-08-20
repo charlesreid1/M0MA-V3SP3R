@@ -9,19 +9,26 @@ def _md_files(root: Path) -> list[Path]:
     files: list[Path] = []
     docs = root / "docs"
     if docs.is_dir():
-        files.extend(sorted(p for p in docs.glob("*.md") if p.is_file()))
+        files.extend(sorted(p for p in docs.rglob("*.md") if p.is_file()))
     readme = root / "README.md"
     if readme.is_file():
         files.append(readme)
     return files
 
 
-def _topic_id(path: Path) -> str:
-    return path.stem.lower().replace("_", "-")
+def _topic_id(path: Path, root: Path) -> str:
+    docs = root / "docs"
+    try:
+        rel = path.relative_to(docs)
+    except ValueError:
+        # File outside docs/ (e.g. root README.md): topic id is bare stem.
+        return path.stem.lower().replace("_", "-")
+    parts = [*rel.parent.parts, rel.stem]
+    return "-".join(parts).lower().replace("_", "-")
 
 
 def _index(root: Path) -> dict[str, Path]:
-    return {_topic_id(p): p for p in _md_files(root)}
+    return {_topic_id(p, root): p for p in _md_files(root)}
 
 
 async def list_topics() -> dict:
