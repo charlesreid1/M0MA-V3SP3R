@@ -228,7 +228,7 @@ The five steps above are the transport. The `com.vesper.flipper.ble` package als
 - **`CommandPipelineAutotuneStatus`** — Autotune measures per-frame BLE MTU and observed round-trip latency, then adjusts chunk sizes and pacing on the FlipperProtocol side to minimise dropped frames on flaky links (long distance, congested spectrum, older firmware BLE stacks). The status object is what surfaces "Autotune: converged / running / disabled" in Ops Center.
 - **`ConnectionDiagnosticsReport`** — Snapshot returned by the Ops Center "Diagnostics" runbook. Bundles the current profile, CLI status, autotune status, last N BLE errors, and RSSI samples. Also emitted alongside connection failures so the audit log records *why* a command errored, not just that it did.
 - **`BleServiceManager`** / **`BleReconService`** — Manage a *second* BLE role: acting as central against an arbitrary target device (not the Flipper) for the recon actions `ble_scan_targets`, `ble_enumerate`, `ble_read_char`, `ble_write_char`, `ble_subscribe`. Kept separate from `FlipperBleService` so the Flipper transport keeps its dedicated connection.
-- **`MarauderBridge`** — Serial-over-BLE wrapper for the WiFi Marauder companion firmware. Used by pwnagotchi / WiFi flows to shell into Marauder commands through the Flipper's GPIO UART.
+- **`MarauderBridge`** — Serial-over-BLE wrapper for the WiFi Marauder companion firmware. Used by pwnagotchi / WiFi flows to shell into Marauder commands through the Flipper's GPIO UART. See `marauder-overview.md` for what Marauder does, `marauder-wiring.md` for the physical connection, and `marauder-commands.md` for the CLI catalog.
 
 ## Feature Surfaces
 

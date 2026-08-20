@@ -118,7 +118,7 @@ Each stage has its own AI prompt and shows its own progress indicator, so you ca
 - **Portal types:** WiFi login, Social media, Corporate, Banking, Custom
 - **Built-in templates:** Generic WiFi Login, Google-style Login, Corporate VPN, Hotel WiFi Portal
 - Output is a self-contained HTML page with a form that POSTs to your configurable capture endpoint (default `/capture`)
-- **Delivery:** the HTML is written to the Flipper; actually hosting the captive portal is the WiFi devboard / companion firmware's job, not Vesper's
+- **Delivery:** the HTML is written to the Flipper; actually hosting the captive portal is the WiFi devboard / companion firmware's job, not Vesper's — see `marauder-overview.md` and `marauder-commands.md`
 
 ### Photo attachment
 

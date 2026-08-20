@@ -44,7 +44,10 @@
 
 ## Group D — WiFi Marauder header
 
-*(populated by slice 6.4)*
+- `marauder-overview` — ⭐ what Marauder does; why 802.11 needs a companion.
+- `marauder-firmware` — flashing, releases, UART CLI protocol.
+- `marauder-wiring` — physical wiring, official pink board vs third-party.
+- `marauder-commands` — Scan / Attack / Utility catalog.
 
 ## Group E — Extension & development
 
