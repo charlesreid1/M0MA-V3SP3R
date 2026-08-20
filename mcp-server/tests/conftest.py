@@ -12,6 +12,9 @@ def fake_corpus(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     docs.mkdir()
     (docs / "architecture.md").write_text("# Architecture\n\nAlpha bravo charlie.\n")
     (docs / "campaigns.md").write_text("# Campaigns\n\nDelta echo foxtrot.\n")
+    skills_dir = docs / "skills"
+    skills_dir.mkdir()
+    (skills_dir / "wifi-attack.md").write_text("# WiFi attack\n\nKilo lima mike.\n")
     (docs / "execute_command_schema.json").write_text(json.dumps({
         "properties": {
             "action": {"enum": ["list_directory", "read_file", "get_device_info"]},

@@ -9,6 +9,21 @@ async def test_list_topics_lists_fake_corpus(fake_corpus):
     assert {"architecture", "campaigns", "readme"} <= topics
 
 
+async def test_list_topics_includes_nested_folders(fake_corpus):
+    from vesper_mcp.tools import knowledge
+    result = await knowledge.list_topics()
+    assert result["ok"] is True
+    topics = {row["topic"] for row in result["data"]}
+    assert "skills-wifi-attack" in topics
+
+
+async def test_read_doc_returns_nested_body(fake_corpus):
+    from vesper_mcp.tools import knowledge
+    result = await knowledge.read_doc("skills-wifi-attack")
+    assert result["ok"] is True
+    assert "Kilo lima mike." in result["data"]["content"]
+
+
 async def test_read_doc_returns_body(fake_corpus):
     from vesper_mcp.tools import knowledge
     result = await knowledge.read_doc("architecture")

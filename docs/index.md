@@ -57,7 +57,16 @@
 
 ## Group F — Signal analysis methodology (bundled skills)
 
-*(populated by slice 6.6)*
+Generated from `app/src/main/assets/skills/<name>/SKILL.md` by
+`mcp-server/scripts/sync_skills.py`. See `docs/skills/README.md`.
+
+- `skills-ble-exploitation` — BLE recon, spoofing, spam.
+- `skills-campaign` — autonomous multi-step campaign planning.
+- `skills-payload-authoring` — BadUSB payload authoring.
+- `skills-pentest-report` — structured pentest write-ups.
+- `skills-protocol-analysis` — protocol reversing methodology.
+- `skills-signal-analysis` — RF signal capture + decoding.
+- `skills-wifi-attack` — Wi-Fi recon + Marauder attack methodology.
 
 ## Group G — Safety, legal, RF regulations
 
