@@ -20,7 +20,27 @@
 
 ## Group C — RF subsystems
 
-*(populated by slice 6.3)*
+**SubGHz:**
+
+- `subghz-overview` — CC1101, presets, tuning, region policy.
+- `subghz-protocols` — Princeton, CAME, KeeLoq, Security+, Somfy, more.
+- `signal-formats-sub` — the `.sub` file format.
+
+**Infrared:**
+
+- `ir-overview` — TX/RX hardware, standard protocols, universal remote.
+- `signal-formats-ir` — the `.ir` file format.
+
+**NFC:**
+
+- `nfc-overview` — 13.56 MHz, MIFARE Classic attacks, DESFire limits.
+- `signal-formats-nfc` — the `.nfc` file format.
+
+**LF RFID / iButton / GPIO extensions:**
+
+- `rfid-lf-overview` — 125 kHz, T5577 blanks, HID Prox, EM4100.
+- `ibutton-overview` — 1-Wire, DS1990A, CYFRAL, Metakom.
+- `flipper-gpio-extensions` — Wi-Fi devboard, NRF24, VGM, DAP-Link.
 
 ## Group D — WiFi Marauder header
 
