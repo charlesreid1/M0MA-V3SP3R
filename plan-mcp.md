@@ -5,10 +5,15 @@ Android app and the Node `mentra-bridge/`. Match the wiring idiom of
 H4CKRF-6H05T, P1N3NUT5, and PHR34CKER5, and support all three transports the
 user asked for: `stdio`, `sse`, `streamable-http`.
 
-**Scope note.** Everything before §9 is MVP and does **not** touch the phone.
-Phases in §9 are deferred to their own branches. If any instruction below is
-underspecified, prefer the shape that matches P1N3NUT5 / PHR34CKER5 — those
-are the closest reference points.
+**Scope note.** The MCP server is an **alternative frontend** to the
+Android app, not a layer on top of it — see §9. The MVP (§§1–8, §10.1–10.5)
+is a knowledge-focused corpus server: it exposes the runbook and the
+execute_command schema for planning and inspection, but does not execute
+against Flipper hardware. Execution-side capability is a future design
+pass, not a "phase 2" of this plan.
+
+If any instruction below is underspecified, prefer the shape that matches
+P1N3NUT5 / PHR34CKER5 — those are the closest reference points.
 
 ## 0. Cross-repo comparison (the shared pattern to match)
 
@@ -78,10 +83,10 @@ async def _run() -> None:
         await teardown()
 ```
 
-**Decision for M0MA-V3SP3R:** start with the PHR34CKER5/P1N3NUT5 form
-(`app.run(transport=…)`). We can migrate to the explicit-async form later if
-we need lifespan teardown (e.g. once the bridge to the phone is up and we're
-holding an ADB or WebSocket connection).
+**Decision for M0MA-V3SP3R:** use the PHR34CKER5/P1N3NUT5 form
+(`app.run(transport=…)`). MVP holds no long-lived connections — nothing
+to tear down. The explicit-async form is only worth adopting if MCP later
+grows a stateful executor (§9).
 
 Ignoring `--host` / `--port` on stdio is intentional and matches all three
 references — do not error, do not warn. It's a no-op.
@@ -110,10 +115,7 @@ M0MA-V3SP3R/
 │   │   ├── tools/
 │   │   │   ├── __init__.py      # empty
 │   │   │   ├── knowledge.py     # list_topics, read_doc, search_docs
-│   │   │   ├── schema.py        # list_actions, describe_action (reads execute_command_schema.json)
-│   │   │   ├── faphub.py        # (§9 later) search_faphub, install_faphub_app
-│   │   │   ├── github.py        # (§9 later) github_search, browse_repo
-│   │   │   └── bridge.py        # (§9 later) proxy to Android app
+│   │   │   └── schema.py        # list_actions, describe_action (reads execute_command_schema.json)
 │   │   ├── resources.py         # vesper://... URIs (registered in server.py)
 │   │   └── _knowledge/          # PACKAGED corpus copy (see §2 force-include)
 │   │       ├── docs/            # mirror of repo-root docs/
@@ -239,10 +241,11 @@ from .tools import knowledge, schema
 mcp = FastMCP(
     name="vesper",
     instructions=(
-        "M0MA-V3SP3R — Flipper Zero campaign runbook + on-device tool "
-        "catalog. Use list_topics / read_doc / search_docs for corpus "
-        "access; list_actions / describe_action to inspect the "
-        "execute_command schema exposed by the Android app."
+        "M0MA-V3SP3R — knowledge-focused corpus server for the Vesper "
+        "Flipper Zero project. Use list_topics / read_doc / search_docs "
+        "to browse the runbook; list_actions / describe_action to inspect "
+        "the execute_command schema. This server does not execute commands "
+        "against a Flipper — it is a planning and reference surface."
     ),
 )
 
@@ -396,7 +399,7 @@ MVP tools (no phone hardware required):
 - `schema.list_actions()` — all `execute_command` action ids from
   `docs/execute_command_schema.json` (auto-generated from Kotlin, currently
   contains 60+ actions).
-- `schema.describe_action(action: str)` — one action's params + risk tier.
+- `schema.describe_action(action: str)` — the schema's args block for one action.
 
 ### 5.1 `runtime.py` — corpus resolution + envelope helper
 
@@ -544,10 +547,10 @@ correctness > caching for MVP). Actions come from the top-level
 `properties.action.enum` array; parameter descriptions come from
 `properties.args.properties`.
 
-Risk tier is **not** in the JSON schema — it lives in the Kotlin
-`RiskAssessor`. For MVP, `describe_action` returns `risk: "unknown"` and
-notes the caller should ask the app. §9.2 wires the real risk tier through
-once the bridge is up.
+Risk tier is deliberately **not** returned. The Kotlin `RiskAssessor`
+lives inside the Android app and MCP is a separate frontend (§9); risk
+enforcement is not the MCP server's job in this MVP. The MCP tools return
+what the JSON schema knows and nothing more.
 
 ```python
 # src/vesper_mcp/tools/schema.py
@@ -582,9 +585,11 @@ async def list_actions() -> dict:
 
 
 async def describe_action(action: str) -> dict:
-    """Describe one action: its parameters (from args.properties) and known risk tier.
+    """Describe one action: the full args.properties block from the schema.
 
-    Risk tier is "unknown" until the app bridge is wired up (§9.2)."""
+    Returns every documented arg for the execute_command interface; the
+    schema does not tag which args apply to which action, so this call
+    returns the union."""
     try:
         schema = _load_schema()
     except FileNotFoundError as e:
@@ -593,27 +598,20 @@ async def describe_action(action: str) -> dict:
     if action not in actions:
         return err(f"unknown action {action!r}; try list_actions()", code="unknown_action")
     args_props = schema.get("properties", {}).get("args", {}).get("properties", {})
-    # Return every arg description; per-action filtering lives in the app.
-    # For MVP we return the whole args block so the caller can see all fields.
     return ok({
         "action": action,
         "args": args_props,
         "required_top_level": schema.get("required", []),
-        "risk": "unknown",  # §9.2 will replace with LOW/MEDIUM/HIGH/BLOCKED.
-        "note": "Per-action arg filtering happens in the Android app; this call returns the full args schema.",
     })
 ```
 
-### Beyond MVP: enum-driven registration (steal from H4CKRF-6H05T)
+### Beyond MVP
 
-Once we're ready to bridge to the app, the `execute_command_schema.json`
-becomes exactly the same shape as H4CKRF-6H05T's `CommandAction` enum. Reuse
-their pattern: for each action, build an MCP tool wrapper with typed
-kwargs derived from the schema, prepending `justification` and
-`expected_effect` params (H4CKRF's tool factory,
-`src/hackrf_agent/mcp/server.py:81-194`). That way the ~60 tools stay in
-sync with the app automatically. Land this in `feature/mcp-bridge` (§9.1),
-not MVP.
+Execution-side capability (turning the ~60 schema actions into MCP tools
+that actually reach hardware) is out of scope until MCP grows into a peer
+executor — see §9 for the architectural framing. If and when that lands,
+enum-driven registration in the style of H4CKRF-6H05T's tool factory
+(`src/hackrf_agent/mcp/server.py:81-194`) is the natural template.
 
 ## 6. Resources — `vesper://…` URI scheme
 
@@ -887,7 +885,6 @@ async def test_describe_action_known(fake_corpus):
     assert result["ok"] is True
     assert result["data"]["action"] == "read_file"
     assert "path" in result["data"]["args"]
-    assert result["data"]["risk"] == "unknown"
 
 
 async def test_describe_action_unknown(fake_corpus):
@@ -940,25 +937,40 @@ Repo has zero CI today — this is additive and only gates the new subproject.
 It runs on `docs/**` changes too so a schema regeneration that breaks
 `describe_action` shows up before merge.
 
-## 9. Later phases (deferred to their own branches)
+## 9. Later phases
 
-1. **App bridge.** Decide the channel: ADB `tcp:` forward to a small HTTP
-   listener the app already runs, or a WebSocket like `mentra-bridge/`.
-   Once picked, `tools/bridge.py` wraps `execute_command` so each schema
-   action becomes an MCP tool. Reuse H4CKRF-6H05T's factory pattern —
-   iterate the schema, generate one wrapper per action.
-2. **Risk-tier passthrough + elicitation.** App is authoritative on
-   LOW/MEDIUM/HIGH/BLOCKED. On HIGH-tier tools, surface the confirmation
-   through `session.elicit(...)` (H4CKRF pattern, `approval_port.py:74-89`).
-   Replace the `"risk": "unknown"` placeholder in `describe_action`.
-3. **Lifespan teardown.** Once we hold long-lived connections (bridge or
-   audit stream), switch `main()` to the H4CKRF explicit-async form so we
-   have a proper `try/finally` teardown around
-   `run_stdio_async` / `run_sse_async` / `run_streamable_http_async`.
-4. **Audit resource.** `vesper://audit/{session}/events` from the app's
-   audit log.
-5. **Signal handling.** Copy H4CKRF's two-level SIGINT (`server.py:434-440`)
-   once we have in-flight tool tasks worth cancelling.
+**Architectural note.** MCP and the Android app are **alternative frontends**
+onto the same conceptual product, not layers of one system. When a user is
+driving the MCP server (from Claude Desktop / opencode / a scripted client),
+they are not driving the phone; and when they're driving the phone, they
+are not driving the MCP server. The two share the corpus (`docs/`,
+`README.md`, `execute_command_schema.json`) but not runtime state.
+
+The eventual goal is for MCP to grow into a peer executor — reaching a
+Flipper directly (USB serial, Flipper CLI protocol, or similar) without
+routing through the app. But the near-term posture is deliberate:
+
+**The MCP is a knowledge-focused corpus server.** It helps a user reason
+about, plan, and inspect Flipper operations — read the runbook, search
+the docs, look up an action's arg shape. It does not fire commands at
+hardware. Everything the MVP ships (§§1–8, §10.1–10.5) already covers
+this scope.
+
+Future execution capability, when it lands, will be its own design pass
+against the "MCP as peer executor" model, not a bridge to the Android
+app. Design decisions from that pass (transport channel, risk-tier
+enforcement Python-side, lifespan teardown, signal handling, audit
+surface) are all deferred until that model is worked out. Nothing in
+§10 depends on them.
+
+Two housekeeping fixes carried into the MVP so the code doesn't lie
+about scope:
+- `describe_action` no longer references an app-side risk source or an
+  app-side arg filter. Risk is simply omitted; the schema returns what
+  the schema knows.
+- The reserved `tools/faphub.py`, `tools/github.py`, `tools/bridge.py`
+  filenames in the §1 tree are removed — they were placeholders for the
+  wrong architecture.
 
 ## 10. Landing order — branches, not PRs
 
@@ -1085,10 +1097,12 @@ preview / GitHub Actions tab. `ruff check .` and `pytest -q` both pass.
 
 Merge: `git checkout main && git merge --no-ff feature/mcp-ci`.
 
-### 10.6 Deferred (own branches, §9)
+### 10.6 What's not in this plan
 
-`feature/mcp-bridge`, `feature/mcp-elicitation`, `feature/mcp-audit`,
-`feature/mcp-signals`. Not part of this plan's scope.
+Execution-side capability (running commands against a Flipper directly
+from MCP, without the Android app) is out of scope — see §9. When that
+lands, it will need its own design pass and its own plan document, not
+a phase-2 continuation of this one.
 
 ## 11. Ports
 
@@ -1107,12 +1121,13 @@ so parallel dev servers don't collide.
 - **`mcp-server/` sibling location.** Matches `mentra-bridge/` naming; keeps
   the Kotlin build root clean.
 - **PHR34CKER5-form `main()` (unified `app.run(transport=…)`).** H4CKRF's
-  explicit-async form is only needed once we have lifespan teardown; that's
-  §9.3.
+  explicit-async form is only needed for lifespan teardown, which the MVP
+  doesn't have.
 - **Transport CLI-only, no env var.** All three references do this. Change
   only if a specific deployment needs it.
-- **MVP scope = knowledge/schema tools.** Bridge to the phone is the
-  interesting version but needs its own design pass (§9.1).
+- **MVP scope = knowledge/schema tools only.** MCP and the Android app are
+  alternative frontends, not a stack; execution-side capability is a future
+  design pass, not a phase 2 (§9).
 - **Package `mcp>=1.2.0,<2`.** All three references pin this; the streamable-http
   transport lives inside that range.
 - **Corpus is bundled into the wheel via `force-include`.** Alternative:
@@ -1122,5 +1137,7 @@ so parallel dev servers don't collide.
   Consistent across every tool return. Alternative: raise on error. Rejected
   because FastMCP surfaces exceptions as generic tool-call errors and we
   want richer, machine-readable codes for callers.
-- **Risk tier stubbed as `"unknown"` in MVP.** Real values live in the
-  Kotlin `RiskAssessor` and land in §9.2.
+- **`describe_action` returns the schema's full args block, no risk tier.**
+  Per-action arg filtering and risk enforcement belong to whichever frontend
+  actually executes commands. MCP is the corpus frontend, so it doesn't
+  synthesize either.

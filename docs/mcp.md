@@ -109,7 +109,7 @@ Tools (`tools/list` returns exactly these five):
 - `read_doc(topic: str)` — return one doc body.
 - `search_docs(query: str, limit: int = 20)` — substring search.
 - `list_actions()` — every `execute_command` action id (~60).
-- `describe_action(action: str)` — one action's args + placeholder risk tier.
+- `describe_action(action: str)` — the schema's args block for one action.
 
 Resources:
 

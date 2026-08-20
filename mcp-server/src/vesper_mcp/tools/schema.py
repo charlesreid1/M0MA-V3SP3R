@@ -30,9 +30,11 @@ async def list_actions() -> dict:
 
 
 async def describe_action(action: str) -> dict:
-    """Describe one action: its parameters (from args.properties) and known risk tier.
+    """Describe one action: the full args.properties block from the schema.
 
-    Risk tier is "unknown" until the app bridge is wired up (§9.2)."""
+    The schema does not tag which args apply to which action, so this call
+    returns the union — every documented arg for the execute_command
+    interface. Callers filter by action-appropriate keys."""
     try:
         schema = _load_schema()
     except FileNotFoundError as e:
@@ -45,9 +47,4 @@ async def describe_action(action: str) -> dict:
         "action": action,
         "args": args_props,
         "required_top_level": schema.get("required", []),
-        "risk": "unknown",
-        "note": (
-            "Per-action arg filtering happens in the Android app; this call "
-            "returns the full args schema."
-        ),
     })

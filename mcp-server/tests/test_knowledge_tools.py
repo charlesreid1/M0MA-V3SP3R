@@ -50,7 +50,7 @@ async def test_describe_action_known(fake_corpus):
     assert result["ok"] is True
     assert result["data"]["action"] == "read_file"
     assert "path" in result["data"]["args"]
-    assert result["data"]["risk"] == "unknown"
+    assert "risk" not in result["data"]
 
 
 async def test_describe_action_unknown(fake_corpus):

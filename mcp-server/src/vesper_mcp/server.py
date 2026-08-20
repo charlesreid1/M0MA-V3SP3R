@@ -12,10 +12,11 @@ from .tools import knowledge, schema
 mcp = FastMCP(
     name="vesper",
     instructions=(
-        "M0MA-V3SP3R — Flipper Zero campaign runbook + on-device tool "
-        "catalog. Use list_topics / read_doc / search_docs for corpus "
-        "access; list_actions / describe_action to inspect the "
-        "execute_command schema exposed by the Android app."
+        "M0MA-V3SP3R — knowledge-focused corpus server for the Vesper "
+        "Flipper Zero project. Use list_topics / read_doc / search_docs "
+        "to browse the runbook; list_actions / describe_action to inspect "
+        "the execute_command schema. This server does not execute commands "
+        "against a Flipper — it is a planning and reference surface."
     ),
 )
 
