@@ -80,6 +80,48 @@ out-of-range values.
 - **Translations / i18n** — Localization for non-English languages
 - **Test coverage** — Unit tests, integration tests, UI tests
 - **Documentation** — Guides, tutorials, API docs
+- **Knowledge corpus** — New topic docs and cross-links under `docs/` (see below)
+
+### Knowledge corpus contributions
+
+The `docs/` directory is a **knowledge-focused corpus** served over MCP
+by `mcp-server/`. It's browsable end-to-end from
+[`docs/index.md`](docs/index.md). If you're adding or editing a topic
+doc, follow these rules — the MCP server relies on them:
+
+- **Kebab-case filenames, `.md` extension, no numeric prefixes.**
+  `list_topics` derives topic ids from filenames; `docs/subghz-overview.md`
+  becomes topic id `subghz-overview`, `docs/skills/wifi-attack.md`
+  becomes `skills-wifi-attack`. Renaming breaks callers.
+- **One topic per file, ~150-400 lines.** Long omnibus files are
+  hostile to `read_doc` — clients read topics whole.
+- **Follow the doc template** described in
+  [`plan-knowledge-expand.md`](plan-knowledge-expand.md) §4: `What it
+  is`, `How it works`, `Capabilities and limits`, `Common tasks`,
+  `Gotchas`, `Legal & safety notes`, `See also`, and an Attribution
+  footer. Index / reference docs can deviate — say so at the top.
+- **Cross-link liberally.** Every topic doc ends with a `See also:`
+  section of at least two related topic ids. `search_docs` is
+  substring-only, so discoverability rides on explicit references.
+- **Cite sources.** Frequencies, chip part numbers, protocol names —
+  attribute in the footer with a retrieval date (`2025-Q3`) so the
+  claim can be re-verified.
+- **Capability ≠ legality.** Any doc that touches emit / transmit /
+  spoof / clone gets a Legal & safety notes block linking
+  [`legal-and-safety.md`](docs/legal-and-safety.md).
+- **Update [`docs/index.md`](docs/index.md).** New topics belong in a
+  Group A-H section under the same layout the plan uses.
+
+If your topic is a methodology playbook that already exists under
+`app/src/main/assets/skills/<name>/SKILL.md`, edit the source there —
+**do not** hand-edit `docs/skills/<name>.md`. Then run:
+
+```bash
+python mcp-server/scripts/sync_skills.py
+```
+
+CI (`.github/workflows/mcp-python.yml`) runs
+`sync_skills.py --check` before lint and fails on drift.
 
 ### Good First Issues
 

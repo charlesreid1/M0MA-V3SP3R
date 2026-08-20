@@ -66,7 +66,7 @@ Every action goes through `CommandExecutor` and is risk-classified by `RiskAsses
 
 ### Ops Center
 Reads live pipeline health from the BLE layer:
-- Firmware profile (Official / Unleashed / RogueMaster / Xtreme via `FirmwareCompatibilityProfile`)
+- Firmware profile (Official / Momentum / Unleashed / RogueMaster / Xtreme via `FirmwareCompatibilityProfile` — see [`docs/firmware-compatibility-profile.md`](docs/firmware-compatibility-profile.md))
 - CLI readiness (`CliCapabilityStatus`: PROBING / READY / DEGRADED / UNAVAILABLE)
 - Command pipeline autotune (`CommandPipelineAutotuneStatus`) — measures MTU + round-trip and adjusts chunk sizing
 - Connection diagnostics report — bundled snapshot for logs
@@ -219,7 +219,9 @@ app/src/main/java/com/vesper/flipper/
 
 app/src/main/assets/skills/  # Bundled methodology playbooks (SKILL.md per subdirectory)
 mentra-bridge/               # Smart-glasses relay server (Node.js, TypeScript)
-docs/                        # Architecture doc + auto-generated command schema
+docs/                        # Knowledge corpus (41 topics) + auto-generated command schema
+                             # See docs/index.md; served over MCP by mcp-server/.
+mcp-server/                  # FastMCP server exposing docs/ + execute_command_schema.json
 ```
 
 ---
@@ -292,17 +294,36 @@ Ralph is off by default. Settings > **Experimental** > **Ralph autonomous campai
 
 ## Documentation
 
-- **[`docs/index.md`](docs/index.md)** — corpus table of contents. Start here for the Flipper Zero + Momentum + Marauder knowledge base the MCP server exposes.
-- [`docs/architecture.md`](docs/architecture.md) — full architecture, data-flow boundary, risk classification details, per-feature backing services.
-- [`docs/flipper-hardware.md`](docs/flipper-hardware.md) — Flipper Zero platform overview (MCU, radios, storage, power). New to the device? Start here.
-- [`docs/firmware-families.md`](docs/firmware-families.md) — Official / Momentum / Unleashed / RogueMaster.
-- [`docs/marauder-overview.md`](docs/marauder-overview.md) — the WiFi devboard companion.
+**The corpus is browsable end-to-end.** [`docs/index.md`](docs/index.md)
+is the table of contents for 41 topics covering the Flipper Zero
+platform, firmware families (Official / Momentum / Unleashed /
+RogueMaster), RF subsystems (SubGHz, IR, NFC, LF RFID, iButton), the
+WiFi Marauder devboard, app and firmware development, legal/safety,
+and seven methodology playbooks. Every topic id in that index is a
+valid argument to the MCP `read_doc` tool.
+
+**Key entry points:**
+
+- **[`docs/index.md`](docs/index.md)** ⭐ — corpus TOC. Start here.
+- [`docs/architecture.md`](docs/architecture.md) — Vesper architecture, data-flow boundary, risk model.
+- [`docs/mcp.md`](docs/mcp.md) — MCP server setup + tool/resource surface.
+- [`docs/flipper-hardware.md`](docs/flipper-hardware.md) — Flipper Zero platform overview. New to the device? Start here.
+- [`docs/firmware-families.md`](docs/firmware-families.md) — Official / Momentum / Unleashed / RogueMaster comparison.
+- [`docs/firmware-momentum.md`](docs/firmware-momentum.md) ⭐ — Momentum deep dive (the M0MA firmware target).
+- [`docs/firmware-compatibility-profile.md`](docs/firmware-compatibility-profile.md) — how the app auto-detects firmware and routes commands.
+- [`docs/marauder-overview.md`](docs/marauder-overview.md) ⭐ — the WiFi devboard companion (the M0MA WiFi target).
 - [`docs/legal-and-safety.md`](docs/legal-and-safety.md) — practical map of the RF / access-control / computer-fraud tripwires.
 - [`docs/execute_command_schema.json`](docs/execute_command_schema.json) — auto-generated command schema.
+
+**Related:**
+
+- [`mcp-server/README.md`](mcp-server/README.md) — running the FastMCP server locally.
 - [`mentra-bridge/README.md`](mentra-bridge/README.md) — smart-glasses bridge wire protocol and setup.
-- [`MERGE_PLAN_FlipperAgent_into_M0MA-V3SP3R.md`](MERGE_PLAN_FlipperAgent_into_M0MA-V3SP3R.md) — the chunk-by-chunk plan used to merge FlipperAgent into this fork.
+- [`MERGE_PLAN_FlipperAgent_into_M0MA-V3SP3R.md`](MERGE_PLAN_FlipperAgent_into_M0MA-V3SP3R.md) — chunk-by-chunk merge history.
+- [`plan-mcp.md`](plan-mcp.md) — MCP server build plan.
+- [`plan-knowledge-expand.md`](plan-knowledge-expand.md) — how the corpus was built up (branch-per-slice).
 - [`SECURITY.md`](SECURITY.md) — vulnerability disclosure.
-- [`CONTRIBUTING.md`](CONTRIBUTING.md) — contribution guidelines.
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — contribution guidelines (includes the corpus doc template + kebab-case topic-id rules).
 
 ---
 
