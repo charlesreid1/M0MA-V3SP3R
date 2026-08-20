@@ -66,7 +66,7 @@ Every action goes through `CommandExecutor` and is risk-classified by `RiskAsses
 
 ### Ops Center
 Reads live pipeline health from the BLE layer:
-- Firmware profile (Official / Momentum / Unleashed / RogueMaster / Xtreme via `FirmwareCompatibilityProfile` — see [`docs/firmware-compatibility-profile.md`](docs/firmware-compatibility-profile.md))
+- Firmware profile (Official / Momentum / Unleashed / RogueMaster / Xtreme via `FirmwareCompatibilityProfile` — see [`knowledge/firmware/compatibility-profile.md`](knowledge/firmware/compatibility-profile.md))
 - CLI readiness (`CliCapabilityStatus`: PROBING / READY / DEGRADED / UNAVAILABLE)
 - Command pipeline autotune (`CommandPipelineAutotuneStatus`) — measures MTU + round-trip and adjusts chunk sizing
 - Connection diagnostics report — bundled snapshot for logs
@@ -132,7 +132,7 @@ Escalation: `WRITE_FILE`, `CREATE_DIRECTORY`, `COPY`, and `PUSH_ARTIFACT` (of `f
 
 All decisions, approvals, and command results are written to the Room-backed audit log.
 
-**Full details:** [`docs/architecture.md`](docs/architecture.md) — including the on-device / cloud data-flow boundary, the multimodal preprocessing pipeline, and the CLI prefix allowlists.
+**Full details:** [`knowledge/vesper/architecture.md`](knowledge/vesper/architecture.md) — including the on-device / cloud data-flow boundary, the multimodal preprocessing pipeline, and the CLI prefix allowlists.
 
 ---
 
@@ -219,9 +219,11 @@ app/src/main/java/com/vesper/flipper/
 
 app/src/main/assets/skills/  # Bundled methodology playbooks (SKILL.md per subdirectory)
 mentra-bridge/               # Smart-glasses relay server (Node.js, TypeScript)
-docs/                        # Knowledge corpus (41 topics) + auto-generated command schema
-                             # See docs/index.md; served over MCP by mcp-server/.
-mcp-server/                  # FastMCP server exposing docs/ + execute_command_schema.json
+knowledge/                   # Knowledge corpus, one directory per topic.
+                             # See knowledge/MANIFEST.md; served over MCP by mcp-server/.
+docs/                        # Interface schema only: execute_command_schema.json
+                             # (auto-generated from the Kotlin CommandAction enum).
+mcp-server/                  # FastMCP server exposing knowledge/ + execute_command_schema.json
 ```
 
 ---
@@ -294,26 +296,28 @@ Ralph is off by default. Settings > **Experimental** > **Ralph autonomous campai
 
 ## Documentation
 
-**The corpus is browsable end-to-end.** [`docs/index.md`](docs/index.md)
-is the table of contents for 41 topics covering the Flipper Zero
-platform, firmware families (Official / Momentum / Unleashed /
-RogueMaster), RF subsystems (SubGHz, IR, NFC, LF RFID, iButton), the
-WiFi Marauder devboard, app and firmware development, legal/safety,
-and seven methodology playbooks. Every topic id in that index is a
-valid argument to the MCP `read_doc` tool.
+**The corpus is browsable end-to-end.**
+[`knowledge/MANIFEST.md`](knowledge/MANIFEST.md) is the table of
+contents. Topics cover the Flipper Zero platform, firmware families
+(Official / Momentum / Unleashed / RogueMaster), RF subsystems
+(SubGHz, IR, NFC, LF RFID, iButton), the WiFi Marauder devboard, app
+and firmware development, legal/safety, and seven methodology
+playbooks. Each subdirectory of `knowledge/` is a topic; each `.md`
+file inside is a name — call `read_doc(topic, name)` from the MCP
+server, or open the file directly.
 
 **Key entry points:**
 
-- **[`docs/index.md`](docs/index.md)** ⭐ — corpus TOC. Start here.
-- [`docs/architecture.md`](docs/architecture.md) — Vesper architecture, data-flow boundary, risk model.
-- [`docs/mcp.md`](docs/mcp.md) — MCP server setup + tool/resource surface.
-- [`docs/flipper-hardware.md`](docs/flipper-hardware.md) — Flipper Zero platform overview. New to the device? Start here.
-- [`docs/firmware-families.md`](docs/firmware-families.md) — Official / Momentum / Unleashed / RogueMaster comparison.
-- [`docs/firmware-momentum.md`](docs/firmware-momentum.md) ⭐ — Momentum deep dive (the M0MA firmware target).
-- [`docs/firmware-compatibility-profile.md`](docs/firmware-compatibility-profile.md) — how the app auto-detects firmware and routes commands.
-- [`docs/marauder-overview.md`](docs/marauder-overview.md) ⭐ — the WiFi devboard companion (the M0MA WiFi target).
-- [`docs/legal-and-safety.md`](docs/legal-and-safety.md) — practical map of the RF / access-control / computer-fraud tripwires.
-- [`docs/execute_command_schema.json`](docs/execute_command_schema.json) — auto-generated command schema.
+- **[`knowledge/MANIFEST.md`](knowledge/MANIFEST.md)** ⭐ — corpus TOC. Start here.
+- [`knowledge/vesper/architecture.md`](knowledge/vesper/architecture.md) — Vesper architecture, data-flow boundary, risk model.
+- [`knowledge/vesper/mcp.md`](knowledge/vesper/mcp.md) — MCP server setup + tool/resource surface.
+- [`knowledge/flipper-hardware/README.md`](knowledge/flipper-hardware/README.md) — Flipper Zero platform overview. New to the device? Start here.
+- [`knowledge/firmware/families.md`](knowledge/firmware/families.md) — Official / Momentum / Unleashed / RogueMaster comparison.
+- [`knowledge/firmware/momentum.md`](knowledge/firmware/momentum.md) ⭐ — Momentum deep dive (the M0MA firmware target).
+- [`knowledge/firmware/compatibility-profile.md`](knowledge/firmware/compatibility-profile.md) — how the app auto-detects firmware and routes commands.
+- [`knowledge/marauder/README.md`](knowledge/marauder/README.md) ⭐ — the WiFi devboard companion (the M0MA WiFi target).
+- [`knowledge/legal/README.md`](knowledge/legal/README.md) — practical map of the RF / access-control / computer-fraud tripwires.
+- [`docs/execute_command_schema.json`](docs/execute_command_schema.json) — auto-generated command schema (the *interface* to the executor, not lore).
 
 **Related:**
 

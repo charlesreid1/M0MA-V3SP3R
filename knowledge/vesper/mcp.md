@@ -7,11 +7,12 @@ the Model Context Protocol. Three transports are supported: `stdio`
 Server-Sent Events), and `streamable-http` (HTTP + streaming
 JSON-RPC).
 
-**Corpus scope:** 41 topics covering the Flipper Zero platform,
-firmware families (Official / Momentum / Unleashed / RogueMaster),
+**Corpus scope:** the `knowledge/` directory at the repo root — one
+subdirectory per topic (Flipper Zero platform, firmware families,
 RF subsystems, the WiFi Marauder devboard, app and firmware
-development, legal/safety, and seven methodology playbooks. See
-`index.md` for the topic-id list.
+development, legal/safety) plus the seven methodology playbooks
+under `skills/`. See [`../MANIFEST.md`](../MANIFEST.md) for the
+topic list.
 
 Before any of the snippets below work, bootstrap the venv:
 
@@ -102,7 +103,7 @@ dev machines.
 
 | Variable                 | Default | Meaning                                    |
 | ------------------------ | ------- | ------------------------------------------ |
-| `VESPER_MCP_KNOWLEDGE`   | (auto)  | Override corpus root; must contain `docs/` |
+| `VESPER_MCP_KNOWLEDGE`   | (auto)  | Override corpus root; must contain `knowledge/` |
 | `VESPER_MCP_LOG_LEVEL`   | `INFO`  | Stderr log level (DEBUG/INFO/WARNING/ERROR) |
 
 Transport / host / port are CLI-only on purpose — matches the reference
@@ -112,37 +113,38 @@ implementations (H4CKRF-6H05T, P1N3NUT5, PHR34CKER5).
 
 Tools (`tools/list` returns exactly these five):
 
-- `list_topics()` — enumerate corpus docs. Returns `[{topic, path, bytes}, ...]`.
-- `read_doc(topic: str)` — return one doc body. Case-insensitive;
-  underscore/hyphen interchangeable.
+- `list_topics()` — enumerate the corpus. Returns
+  `{root, topic_count, file_count, topics: {topic: [name, ...]}}`.
+- `read_doc(topic: str, name: str = "README")` — return one lore
+  file's body. Underscore/hyphen interchangeable.
 - `search_docs(query: str, limit: int = 20)` — substring search.
 - `list_actions()` — every `execute_command` action id (~60).
 - `describe_action(action: str)` — the schema's args block for one action.
 
 Resources:
 
-- `vesper://docs/index` (`application/json`) — list of topic ids.
-- `vesper://docs/{topic}` (`text/markdown`) — doc body.
+- `vesper://index` (`text/markdown`) — human-readable TOC.
+- `vesper://{topic}/{name}` (`text/markdown`) — lore file body.
 - `vesper://schema/actions` (`application/json`) — action catalog.
 
-### Topic id conventions
+### Topic / name conventions
 
-The knowledge server discovers `docs/**/*.md` recursively plus the
-top-level `README.md`. Topic ids are derived by joining the path
-under `docs/` with hyphens, then lowercasing:
+The knowledge server walks `knowledge/` recursively. Each
+subdirectory is a **topic**; each `.md` file inside is a **name**
+under that topic:
 
-- `docs/flipper-hardware.md` → `flipper-hardware`
-- `docs/skills/wifi-attack.md` → `skills-wifi-attack`
-- `docs/skills/README.md` → `skills-readme`
-- `README.md` (repo root) → `readme`
+- `knowledge/flipper-hardware/README.md` → topic `flipper-hardware`, name `README`
+- `knowledge/subghz/protocols.md` → topic `subghz`, name `protocols`
+- `knowledge/skills/wifi-attack.md` → topic `skills`, name `wifi-attack`
+- `knowledge/MANIFEST.md` → topic `_root`, name `MANIFEST`
 
-Underscores in filenames are folded to hyphens
-(`app_build_process.md` → `app-build-process`); underscore and hyphen
-are interchangeable in `read_doc`.
+Underscore and hyphen are interchangeable in `read_doc`
+(`read_doc("firmware", "compatibility_profile")` ==
+`read_doc("firmware", "compatibility-profile")`).
 
-### `docs/skills/` — synced playbooks
+### `knowledge/skills/` — synced playbooks
 
-The seven `docs/skills/*.md` files are auto-generated from
+The seven `knowledge/skills/*.md` files are auto-generated from
 `app/src/main/assets/skills/<name>/SKILL.md`. The Android
 `SkillRegistry` loads the originals; the MCP server serves the
 copies. Regenerate with `python mcp-server/scripts/sync_skills.py`;
@@ -154,7 +156,8 @@ CI runs `--check` to catch drift.
   `.venv` doesn't exist yet. Rerun the bootstrap block.
 - **`Could not locate corpus`** — you're running the wheel outside a
   source checkout and no `_knowledge/` was packaged. Set
-  `VESPER_MCP_KNOWLEDGE` to a directory containing a `docs/` folder.
+  `VESPER_MCP_KNOWLEDGE` to a directory containing a `knowledge/`
+  folder.
 - **stdio client sees corrupted frames** — something in the process is
   writing to stdout. Every module in this subproject must log via
   `logging.getLogger(__name__)`, never `print`.
@@ -163,6 +166,6 @@ CI runs `--check` to catch drift.
 
 ## See also
 
-- `index.md` — the corpus this server exposes.
-- `architecture.md` — where the MCP fits in the Vesper transport pipeline.
-- `app_build_process.md` — the Android side that consumes the same schema.
+- [`../MANIFEST.md`](../MANIFEST.md) — the corpus this server exposes.
+- [`architecture.md`](architecture.md) — where the MCP fits in the Vesper transport pipeline.
+- [`app-build-process.md`](app-build-process.md) — the Android side that consumes the same schema.

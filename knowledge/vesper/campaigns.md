@@ -154,4 +154,4 @@ Every finding in a campaign is traceable back to the exact tool call that produc
 
 - [`labs.md`](labs.md) — the other two Labs sub-surfaces (Alchemy Lab, Payload Lab).
 - [`architecture.md`](architecture.md) — deeper dive into the risk model and enforcement.
-- [`../SECURITY.md`](../SECURITY.md) — reporting vulnerabilities you find with Vesper.
+- [`SECURITY.md`](../../SECURITY.md) — reporting vulnerabilities you find with Vesper.

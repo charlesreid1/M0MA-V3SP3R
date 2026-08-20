@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Sync the app-side SKILL.md playbooks into docs/skills/*.md.
+"""Sync the app-side SKILL.md playbooks into knowledge/skills/*.md.
 
 The canonical source lives at `app/src/main/assets/skills/<name>/SKILL.md`
 — the Android SkillRegistry loads them from there on demand. This
-script copies each into `docs/skills/<name>.md` so the MCP knowledge
-corpus can expose them via `list_topics()`.
+script copies each into `knowledge/skills/<name>.md` so the MCP corpus
+can expose them via `list_topics()` / `read_doc("skills", name)`.
 
 Two modes:
-- `--write` (default): write the destination files, creating docs/skills/
-  if needed. Idempotent.
+- `--write` (default): write the destination files, creating
+  knowledge/skills/ if needed. Idempotent.
 - `--check`: exit non-zero if the destination is out of sync with the
   source. Used by CI (mcp-python.yml) to prevent drift.
 
@@ -37,7 +37,7 @@ def source_skills_dir(root: Path) -> Path:
 
 
 def dest_skills_dir(root: Path) -> Path:
-    return root / "docs" / "skills"
+    return root / "knowledge" / "skills"
 
 
 def discover_skills(src: Path) -> list[tuple[str, Path]]:
@@ -97,7 +97,7 @@ def sync(check_only: bool) -> int:
     if check_only:
         if stale:
             print(
-                "docs/skills/ is out of sync with app/src/main/assets/skills/. "
+                "knowledge/skills/ is out of sync with app/src/main/assets/skills/. "
                 "Run `python mcp-server/scripts/sync_skills.py` and commit.",
                 file=sys.stderr,
             )
@@ -108,11 +108,11 @@ def sync(check_only: bool) -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Sync SKILL.md playbooks into docs/skills/.")
+    parser = argparse.ArgumentParser(description="Sync SKILL.md playbooks into knowledge/skills/.")
     parser.add_argument(
         "--check",
         action="store_true",
-        help="Verify docs/skills/ is up to date; exit non-zero if not.",
+        help="Verify knowledge/skills/ is up to date; exit non-zero if not.",
     )
     args = parser.parse_args()
     return sync(check_only=args.check)
