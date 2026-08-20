@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "vesper": {
+      "command": "bash",
+      "args": [
+        "-c",
+        "[ -f \"$PWD/mcp-server/.env\" ] && . \"$PWD/mcp-server/.env\"; exec \"$PWD/mcp-server/.venv/bin/vesper-mcp\""
+      ]
+    }
+  }
+}
