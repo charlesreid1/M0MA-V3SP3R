@@ -128,7 +128,7 @@ The `justification` and `expected_effect` fields are the discipline-inducing par
 - **FlipperBleService** — BLE connection and GATT operations
 - **MarauderBridge** — WiFi Marauder companion-board protocol wrapper used by BLE recon and pwnagotchi flows
 - **BleServiceManager** / **BleReconService** — Manage the connection lifecycle for the target-device BLE recon actions (`ble_scan_targets`, `ble_enumerate`, `ble_read_char`, `ble_write_char`, `ble_subscribe`)
-- **GlassesIntegration** / **GlassesBridgeClient** — Client for the [`mentra-bridge/`](../mentra-bridge/) relay server; handles voice, photos, and status round-trips with the smart glasses
+- **GlassesIntegration** / **GlassesBridgeClient** — Client for the [`mentra-bridge/`](../../mentra-bridge/) relay server; handles voice, photos, and status round-trips with the smart glasses
 - **SpeechRecognitionHelper** — On-device Android speech recognition (audio never leaves the phone)
 - **OpenRouterTtsService** — Outbound TTS synthesis for spoken AI responses; routes through OpenRouter's audio-capable models using the existing API key (no separate TTS key)
 - **VesperDatabase** — Room database for audit logs and chat history (`ChatDao`, `AuditDao`)
@@ -271,7 +271,7 @@ The README lists each user-facing surface. This section is the mapping from thos
 - **Commands invoked:** any `CommandAction` — chat is the general-purpose entry point.
 
 ### Smart glasses (Mentra)
-- **Purpose:** heads-up voice + camera control via the [`mentra-bridge/`](../mentra-bridge/) relay server. Wake-word detection, vision-trigger photos, and TTS all round-trip through the bridge.
+- **Purpose:** heads-up voice + camera control via the [`mentra-bridge/`](../../mentra-bridge/) relay server. Wake-word detection, vision-trigger photos, and TTS all round-trip through the bridge.
 - **Backing domain services:** `GlassesIntegration`, `GlassesBridgeClient`.
 - **Commands invoked:** `REQUEST_PHOTO` (intercepted at the `VesperAgent` layer before it would reach `CommandExecutor` — see `FlipperToolExecutor.kt`; the intercept is invisible from outside the agent), plus normal chat-driven actions.
 
