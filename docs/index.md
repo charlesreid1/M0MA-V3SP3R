@@ -51,7 +51,9 @@
 
 ## Group E — Extension & development
 
-*(populated by slice 6.5)*
+- `flipper-fap-apps` — `.fap` format, FURI, uFBT, install paths.
+- `flipper-firmware-build` — fbt, submodules, Momentum tree layout.
+- `flipper-js-runner` — the Momentum JavaScript runtime.
 
 ## Group F — Signal analysis methodology (bundled skills)
 
@@ -59,7 +61,7 @@
 
 ## Group G — Safety, legal, RF regulations
 
-*(populated by slice 6.5)*
+- `legal-and-safety` — practical map of the regulatory posture, per subsystem.
 
 ## Group H — Vesper positioning
 
