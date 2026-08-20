@@ -13,7 +13,10 @@
 
 ## Group B — Firmware ecosystem
 
-*(populated by slice 6.2)*
+- `firmware-families` — Official / Momentum / Unleashed / RogueMaster.
+- `firmware-momentum` — ⭐ M0MA priority; the primary firmware target.
+- `firmware-compatibility-profile` — how Vesper picks a routing profile on connect.
+- `firmware-updating` — flashing, DFU, brick recovery.
 
 ## Group C — RF subsystems
 

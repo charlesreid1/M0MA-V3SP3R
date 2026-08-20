@@ -2,6 +2,8 @@
 
 Vesper (V3SP3R) is an Android app that turns a Flipper Zero into an AI-driven hardware lab. This document captures the overall architecture and, in particular, **the data-flow boundary between on-device logic and the remote AI model.**
 
+> If you don't yet know what a Flipper Zero is, start with `flipper-hardware.md`. If you're new to the firmware ecosystem, `firmware-families.md` names the four families this architecture supports.
+
 ## The Overall Pattern
 
 The whole design turns on a single principle, stated in `VesperPrompts.kt` under the heading "Command-Reality Separation":
@@ -221,7 +223,7 @@ The app communicates with Flipper Zero over BLE using the device's serial profil
 
 The five steps above are the transport. The `com.vesper.flipper.ble` package also owns a set of first-class types that the Ops Center and command pipeline depend on:
 
-- **`FirmwareCompatibilityProfile`** — Per-firmware capability matrix. On connect, Vesper probes the device firmware string and picks the profile that matches (Official, Unleashed, RogueMaster, Xtreme, etc.). Each profile declares which CLI verbs are wired, which app names are launchable, and which `.sub` / `.ir` / `.nfc` schema quirks the parser should tolerate. Commands issued against an unsupported profile fail fast with a firmware-mismatch error instead of a silent no-op.
+- **`FirmwareCompatibilityProfile`** — Per-firmware capability matrix. On connect, Vesper probes the device firmware string and picks the profile that matches (Official, Momentum, Unleashed, RogueMaster, Xtreme). Each profile declares which CLI verbs are wired, which app names are launchable, and which `.sub` / `.ir` / `.nfc` schema quirks the parser should tolerate. Commands issued against an unsupported profile fail fast with a firmware-mismatch error instead of a silent no-op. See `firmware-compatibility-profile.md` for the routing decisions and `firmware-families.md` for the ecosystem overview.
 - **`CliCapabilityStatus`** — Live readiness tracker for the CLI transport. Ops Center's "CLI" pill reads directly from this: `UNKNOWN` → `PROBING` → `READY` / `DEGRADED` / `UNAVAILABLE`. `EXECUTE_CLI` refuses to send when not `READY`.
 - **`CommandPipelineAutotuneStatus`** — Autotune measures per-frame BLE MTU and observed round-trip latency, then adjusts chunk sizes and pacing on the FlipperProtocol side to minimise dropped frames on flaky links (long distance, congested spectrum, older firmware BLE stacks). The status object is what surfaces "Autotune: converged / running / disabled" in Ops Center.
 - **`ConnectionDiagnosticsReport`** — Snapshot returned by the Ops Center "Diagnostics" runbook. Bundles the current profile, CLI status, autotune status, last N BLE errors, and RSSI samples. Also emitted alongside connection failures so the audit log records *why* a command errored, not just that it did.
