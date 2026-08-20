@@ -70,7 +70,7 @@ def main() -> None:
         default=None,
         help=(
             "Override corpus root (also readable from $VESPER_MCP_KNOWLEDGE). "
-            "Must be an existing directory containing a docs/ subdirectory."
+            "Must be an existing directory containing a knowledge/ subdirectory."
         ),
     )
     args = parser.parse_args()

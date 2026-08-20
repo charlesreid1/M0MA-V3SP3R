@@ -4,11 +4,11 @@ import json
 from functools import lru_cache
 from pathlib import Path
 
-from ..runtime import err, knowledge_root, ok
+from ..runtime import err, ok, schema_path
 
 
 def _schema_path() -> Path:
-    return knowledge_root() / "docs" / "execute_command_schema.json"
+    return schema_path()
 
 
 @lru_cache(maxsize=1)

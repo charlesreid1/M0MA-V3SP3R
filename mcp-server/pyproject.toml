@@ -31,11 +31,12 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/vesper_mcp"]
 
-# Bundle the repo-root docs into the wheel so `pip install vesper-mcp`
-# (no repo checkout) still has a corpus. Paths are resolved relative to
-# this pyproject.toml.
+# Bundle the repo-root knowledge corpus + the interface schema into the
+# wheel so `pip install vesper-mcp` (no repo checkout) still has both.
+# Paths are resolved relative to this pyproject.toml.
 [tool.hatch.build.targets.wheel.force-include]
-"../docs" = "vesper_mcp/_knowledge/docs"
+"../knowledge" = "vesper_mcp/_knowledge/knowledge"
+"../docs/execute_command_schema.json" = "vesper_mcp/_knowledge/docs/execute_command_schema.json"
 "../README.md" = "vesper_mcp/_knowledge/README.md"
 
 [tool.pytest.ini_options]
